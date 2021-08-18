@@ -9,3 +9,6 @@ $ sudo chmod a+x /usr/bin/sadb
 ```
 alias adb="sadb"
 ```
+
+### demo
+![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
