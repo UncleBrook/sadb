@@ -1,0 +1,69 @@
+#! /bin/bash
+
+# print line
+println(){
+    echo "$devices" | cat | tail -n +"$1" | head -1
+}
+
+adb_args=$*
+
+# execute adb commands
+exec_adb(){
+    real_num=`expr $1 + 2`
+    device=`println $real_num`
+    args=(${device///})
+    echo "adb -s ${args[0]} $adb_args"
+    adb -s ${args[0]} $adb_args
+}
+
+if [ "-s" = "$1" -o "devices" = "$1" ]; 
+then
+    adb $adb_args
+else 
+    devices=`adb devices -l`
+    device_count=`echo "$devices" | awk 'END{print NR}'`
+    if [ $device_count -le 2 ];
+    then
+        adb $adb_args
+    else
+        println 1
+        nums=()
+        for line in $(seq 2 $device_count)
+        do
+            num=`expr $line - 2`
+            nums[$num]=$num
+            printf "[%d]: " $num
+            println $line
+        done
+
+        nums[${#nums[*]}]=a
+        nums[${#nums[*]}]=A
+
+        while :
+        do
+            total_line=`expr $device_count - 2`
+            if read -t 10 -p "More than one device/emulator, please select[0 to $total_line or a/A]: " num
+            then
+                if [[ ${nums[@]/${num}/} != ${nums[@]} ]]
+                then
+                    if [ "a" = $num -o "A" = $num ];
+                    then
+                        for s in $(seq 0 $total_line)
+                        do
+                            exec_adb $s
+                        done
+                        exit 0
+                    else
+                        exec_adb $num
+                        exit 0
+                    fi
+                fi
+            else
+                echo " "
+            fi
+        done
+
+        exit 0
+        
+    fi
+fi
