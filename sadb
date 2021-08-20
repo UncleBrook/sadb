@@ -12,8 +12,9 @@ exec_adb(){
     real_num=`expr $1 + 2`
     device=`println $real_num`
     args=(${device///})
-    echo "adb -s ${args[0]} $adb_args"
+    printf "\e[1;34madb -s ${args[0]} $adb_args\033[0m\n\n"
     adb -s ${args[0]} $adb_args
+    printf "\n"
 }
 
 if [ "-s" = "$1" -o "devices" = "$1" ]; 
@@ -32,17 +33,19 @@ else
         do
             num=`expr $line - 2`
             nums[$num]=$num
-            printf "[%d]: " $num
-            println $line
+            temp=`println $line`
+            args=(${temp///})
+            printf "\e[1;34m[ %d ]: %-16s\033[0m %-10s \e[1;34m%-15s\033[0m\n" $num ${args[0]} ${args[1]} ${args[4]}
         done
 
         nums[${#nums[*]}]=a
         nums[${#nums[*]}]=A
+        printf "\n"
 
         while :
         do
             total_line=`expr $device_count - 2`
-            if read -t 10 -p "More than one device/emulator, please select[0 to $total_line or a/A]: " num
+            if read -p "More than one device/emulator, please select[0 to $total_line or a/A]: " num
             then
                 if [[ ${nums[@]/${num}/} != ${nums[@]} ]]
                 then
