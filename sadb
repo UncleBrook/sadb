@@ -42,10 +42,11 @@ else
         nums[${#nums[*]}]=A
         printf "\n"
 
+        total_line=`expr $device_count - 2`
+        tips_select=`printf "\e[1;34m0\033[0m to \e[1;34m${total_line}\033[0m or \e[1;34ma/A\033[0m"`
         while :
         do
-            total_line=`expr $device_count - 2`
-            if read -p "More than one device/emulator, please select[0 to $total_line or a/A]: " num
+            if read -p "More than one device/emulator, please select[${tips_select}]: " num
             then
                 if [[ ${nums[@]/${num}/} != ${nums[@]} ]]
                 then
