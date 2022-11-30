@@ -1,39 +1,45 @@
 #! /bin/bash
 
-# print line
-println(){
+printline(){
     echo "$devices" | cat | tail -n +"$1" | head -1
 }
 
 adb_args=$*
 
-# execute adb commands
 exec_adb(){
     real_num=`expr $1 + 2`
-    device=`println $real_num`
+    device=`printline $real_num`
     args=(${device///})
     printf "\e[1;34madb -s ${args[0]} $adb_args\033[0m\n\n"
     adb -s ${args[0]} $adb_args
     printf "\n"
 }
 
-if [ "-s" = "$1" -o "devices" = "$1" ]; 
-then
-    adb $adb_args
-else 
+
+: '
+1. 当已连接 0 或 1 台设备时，最多返回 2 行， 则直接执行
+2. 当已连接 2 台及以上设备时，则添加选择逻辑
+
+e.g. 
+List of devices attached
+LP01D26F00061 device usb:1-3.1 product:L2s_PRO model:L2s_PRO device:L2s_PRO transport_id:1
+
+List of devices attached
+
+'
+select_devices() {
     devices=`adb devices -l`
     device_count=`echo "$devices" | awk 'END{print NR}'`
-    if [ $device_count -le 2 ];
-    then
+
+    if [ $device_count -le 2 ]; then
         adb $adb_args
     else
-        println 1
+        printline 1
         nums=()
-        for line in $(seq 2 $device_count)
-        do
+        for line in $(seq 2 $device_count); do
             num=`expr $line - 2`
             nums[$num]=$num
-            temp=`println $line`
+            temp=`printline $line`
             args=(${temp///})
             printf "\e[1;34m[ %d ]: %-16s\033[0m %-10s \e[1;34m%-15s\033[0m\n" $num ${args[0]} ${args[1]} ${args[4]}
         done
@@ -44,16 +50,11 @@ else
 
         total_line=`expr $device_count - 2`
         tips_select=`printf "\e[1;34m0\033[0m to \e[1;34m${total_line}\033[0m or \e[1;34ma/A\033[0m"`
-        while :
-        do
-            if read -p "More than one device/emulator, please select[${tips_select}]: " num
-            then
-                if [[ ${nums[@]/${num}/} != ${nums[@]} ]]
-                then
-                    if [ "a" = $num -o "A" = $num ];
-                    then
-                        for s in $(seq 0 $total_line)
-                        do
+        while : ; do
+            if read -p "More than one device/emulator, please select[${tips_select}]: " num; then
+                if [[ ${nums[@]/${num}/} != ${nums[@]} ]]; then
+                    if [ "a" = $num -o "A" = $num ]; then
+                        for s in $(seq 0 $total_line); do
                             exec_adb $s
                         done
                         exit 0
@@ -68,6 +69,18 @@ else
         done
 
         exit 0
-        
-    fi
+    fi   
+}
+
+
+: '
+1. 如果已包含 -s 参数, 则直接执行
+2. 如果只包含 devices 参数, 则添加 -l 参数
+'
+if [[ "$1" = "-s" ]]; then
+    adb $adb_args
+elif [[ $# -eq 1 && "devices" = "$1" ]]; then
+    adb $adb_args -l
+else
+    select_devices $adb_args
 fi
