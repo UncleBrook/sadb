@@ -1,4 +1,6 @@
+#! /usr/local/bin/bash
 #! /bin/bash
+# 需要注意bash版本必须大于 4.x (bash --version:查看版本，which bash:查看bash路径)
 
 printline() {
     echo -n "$devices" | cat | tail -n +"$1" | head -1

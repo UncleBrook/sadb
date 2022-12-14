@@ -13,4 +13,4 @@ alias adb="sadb"
 ```
 
 ### demo
-![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
+![](./screenshot/demo_0.gif)
