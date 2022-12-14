@@ -12,5 +12,10 @@ $ sudo chmod a+x /usr/bin/sadb
 alias adb="sadb"
 ```
 
+### 要求
+
+`bash` 的版本需要 v4+
+
+
 ### demo
 ![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
