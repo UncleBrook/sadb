@@ -19,3 +19,8 @@ alias adb="sadb"
 
 ### demo
 ![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
+
+
+
+### TODO
+- [ ] 设置 alias, `adb alias.ws 'shell wm size'`
