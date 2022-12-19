@@ -23,4 +23,5 @@ alias adb="sadb"
 
 
 ### TODO
+- [x] ~~选择设备执行命令~~
 - [ ] 设置 alias, `adb alias.ws 'shell wm size'`
