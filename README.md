@@ -1,6 +1,7 @@
 # sadb
 
-交互式 adb：在连接多台设备时，交互式选择 1 台、2 台或多台设备执行相关操作。
++ 交互式 adb：在连接多台设备时，选择 1 台、2 台或多台设备执行相关命令
++ 支持设置 `adb alias`
 
 ### 使用
 ```
@@ -13,8 +14,14 @@ alias adb="sadb"
 ```
 
 ### 要求
+- `bash` 版本需要高于 v3.2
+  > 1. 低于 v4.x 的版本不支持 `declare -A`
+  > 2. `bash --version`  查看 bash 版本
 
-`bash` 的版本需要 v4+
+
+### TODO
+- [x] ~~选择设备执行命令~~
+- [ ] 设置 alias, `adb alias.ws 'shell wm size'`
 
 
 ### demo
@@ -22,6 +29,4 @@ alias adb="sadb"
 
 
 
-### TODO
-- [x] ~~选择设备执行命令~~
-- [ ] 设置 alias, `adb alias.ws 'shell wm size'`
+
