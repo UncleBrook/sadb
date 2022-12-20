@@ -1,33 +1,38 @@
 # sadb
 
-+ 交互式 adb：在连接多台设备时，选择 1 台、2 台或多台设备执行相关命令
-+ 支持设置 `adb alias`
++ Interactive adb: when connecting multiple devices, select 1, 2 or more devices to execute a command
++ Support for setting alias (e.g. `adb alias.topActivity "shell dumpsys activity top | grep ACTIVITY"`)
 
 
-### 使用
+## Installation
+
+```shell
+$ sudo su
+$ curl https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb > /usr/bin/sadb && sudo chmod a+x /usr/bin/sadb
 ```
-$ sudo cp ./sadb /usr/bin/
-$ sudo chmod a+x /usr/bin/sadb
+or 
+```shell
+$ git clone https://github.com/UncleBrook/v2rayT.git ~/sadb
+$ sudo mv ~/sadb/sadb /usr/bin/ && sudo chmod a+x /usr/bin/sadb && rm -rf ~/sadb
 ```
-在 `~/.bashrc` 中添加 `alias adb="sadb"`
+and then add `alias adb="sadb"` to `~/.bashrc` or `~/.bash_profile`
 
 
+## Requirements
+
+- `bash` version needs to be greater than v3.2
+  > 1. `declare -A` is not supported before v3.2
+  > 2. `bash --version` to view bash version
 
 
-### 要求
-- `bash` 版本需要高于 v3.2
-  > 1. 低于 v4.x 的版本不支持 `declare -A`
-  > 2. `bash --version`  查看 bash 版本
+## To-do
+
+- [x] ~~Select a device to execute a command~~
+- [ ] Setting alias (e.g. `adb alias.ws 'shell wm size'`)
 
 
+## Demo
 
-### TODO
-- [x] ~~选择设备执行命令~~
-- [ ] 设置 alias, `adb alias.ws 'shell wm size'`
-
-
-
-### demo
 ![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
 
 
