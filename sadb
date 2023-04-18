@@ -121,6 +121,8 @@ if [[ "$1" = "-s" ]]; then
     adb $adb_args
 elif [[ "$1" = "disconnect" ]]; then
     adb $adb_args
+elif [[ "$1" = "connect" ]]; then
+    adb $adb_args
 elif [[ "devices" = "$1" ]]; then
     if [[ $# -eq 1 ]]; then
         adb $adb_args -l
