@@ -119,6 +119,10 @@ show_devices() {
 '
 if [[ "$1" = "-s" ]]; then
     adb $adb_args
+elif [[ "$1" = "start-server" ]]; then
+    adb $adb_args
+elif [[ "$1" = "kill-server" ]]; then
+    adb $adb_args
 elif [[ "$1" = "disconnect" ]]; then
     adb $adb_args
 elif [[ "$1" = "connect" ]]; then
