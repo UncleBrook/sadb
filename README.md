@@ -12,7 +12,7 @@ $ curl https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb > /usr/bin/sa
 ```
 or 
 ```shell
-$ git clone [https://github.com/UncleBrook/sadb.git](https://github.com/UncleBrook/sadb.git) ~/sadb
+$ git clone https://github.com/UncleBrook/sadb.git ~/sadb
 $ sudo mv ~/sadb/sadb /usr/bin/ && sudo chmod a+x /usr/bin/sadb && rm -rf ~/sadb
 ```
 and then add `alias adb="sadb"` to `~/.bashrc` or `~/.bash_profile`
