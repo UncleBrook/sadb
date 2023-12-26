@@ -28,7 +28,7 @@ and then add `alias adb="sadb"` to `~/.bashrc` or `~/.bash_profile`
 ## To-do
 
 - [x] ~~Select a device to execute a command~~
-- [ ] Setting alias (e.g. `adb alias.ws 'shell wm size'`)
+- [x] Setting alias (e.g. `adb alias.ws 'shell wm size'`)
 
 
 ## Demo
