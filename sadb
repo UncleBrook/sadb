@@ -1,140 +1,139 @@
 #! /usr/local/bin/bash
 #! /bin/bash
-# 需要注意bash版本必须大于 4.x (bash --version:查看版本，which bash:查看bash路径)
+# 需要注意bash版本必须大于 3.2 (bash --version:查看版本，which bash:查看bash路径)
 
-printline() {
-    echo -n "$devices" | cat | tail -n +"$1" | head -1
-}
+c_green=$(tput setaf 2)
+c_reset=$(tput sgr0)
+adb=$(which adb)
+config="${HOME}/.config/sadb/"
+mkdir -p "$config"
 
-adb_args=$*
 declare -A dic_device
-declare -A nums
+declare -A alias
+nums=()
+
+[[ ! -e "${config}.alias" ]] && touch "${config}.alias"
+
+read_alias() {
+    while IFS='=' read -r key value; do
+        alias["$key"]="$value"
+    done < "${config}.alias"
+}
 
 exec_adb() {
-    real_num=$(expr $1 + 2)
-    device=$(printline $real_num)
+    local num device args real_args
+    num=$(expr $1 + 2)
+    device=$(sed -n "${num}p" <<< "$devices")
     args=(${device///})
-    echo -n $(printf "\n" >&2)
-    echo -n $(printf "\e[1madb -s ${args[0]} $adb_args\e[0m\n" >&2)
-    adb -s ${args[0]} $adb_args
+
+    real_args="${alias[${adb_args[0]}]}"
+
+    if [[ -z "$real_args" ]]; then
+        real_args="${adb_args[@]}"
+    else
+        real_args="${real_args} ${adb_args[@]:1}"
+    fi
+
+    printf "\n${c_green}${adb} ${c_reset}-s ${args[0]} ${real_args}\n\n" >&2
+    ${adb} -s ${args[0]} ${real_args}
+
+    printf "\n" >&2
 }
 
-: '
-解析设备详细信息
-e.g.
-[
-    "sn":"ds00001",
-    "device_type":"device",
-    "usb":"1-3.1",
-    "product":"Pixel_5a",
-    "model":"Pixel_5a",
-    "device":"Pixel_5a",
-    "transport_id":"1"
-]
-'
-parse_device() {
-    device=$*
-    device=(${device///})
-    dic_device=()
-    for ((i = 0; i < ${#device[@]}; i++)); do
-        key=$(echo -n ${device[i]} | awk -F':' '{print $1}')
-        value=$(echo -n ${device[i]} | awk -F':' '{print $2}')
-        if [[ 0 -eq $i ]]; then
-            value=$key
-            key="sn"
-        elif [[ 1 -eq $i ]]; then
-            value=$key
-            key="device_type"
-        fi
-        dic_device+=([$key]=$value)
-    done
-}
+choose_device() {
+    local total_line num
+    total_line=$(( device_count - 2 ))
 
-: '
-选择执行设备
-'
-select_device() {
-    total_line=$(expr $device_count - 2)
-    echo -n $(printf "\n" >&2)
-    tips="More than one device/emulator, please select[$(printf "\e[1m0\e[0m to \e[1m${total_line}\e[0m or \e[1ma/A\e[0m")]: "
+    printf "\n" >&2
+    local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
+
     while :; do
-        if read -p "$tips" num; then
-            if [[ ${nums[@]/${num}/} != ${nums[@]} ]]; then
-                if [ "a" = $num -o "A" = $num ]; then
-                    for s in $(seq 0 $total_line); do
-                        exec_adb $s
-                    done
-                else
-                    exec_adb $num
-                fi
-                exit 0
+        read -p "$tips" num
+        if [[ " ${nums[*]} " == *" ${num} "* ]]; then
+            if [[ "$num" == [aA] ]]; then
+                for s in "${nums[@]}"; do
+                    [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"
+                done
+            else
+                exec_adb "$num"
             fi
+            break
         fi
     done
 }
 
-: '
-1. 当已连接 0 或 1 台设备时，最多返回 2 行， 则直接执行
-2. 当已连接 2 台及以上设备时，则添加选择逻辑
+print_devices() {
+    devices=$("${adb}" devices -l)
+    device_count=$(wc -l <<< "$devices")
 
-e.g. 
-List of devices attached
-ds00001 device usb:1-3.1 product:Pixel_5a model:Pixel_5a device:Pixel_5a transport_id:1
-
-List of devices attached
-
-'
-show_devices() {
-    devices=$(adb devices -l)
-    device_count=$(echo -n "$devices" | awk 'END{print NR}')
-
-    if [ $device_count -le 2 ]; then
-        adb $adb_args
+    if [ "$device_count" -le 2 ]; then
+        exec_adb 0
         exit 0
     else
-        echo -n $(printline 1 >&2)
-        nums=()
-        for line in $(seq 2 $device_count); do
-            num=$(expr $line - 2)
+        echo "$devices" | head -n 1 >&2
+        for line in $(seq 2 "$device_count"); do
+            num=$(( line - 2 ))
             nums[$num]=$num
 
-            parse_device $(printline $line)
+            parse_device "$(sed -n "${line}p" <<< "$devices")"
 
-            sn=${dic_device["sn"]}
-            device_type=${dic_device["device_type"]}
-            model=${dic_device["model"]}
-            product=${dic_device["product"]}
-
-            echo -n $(printf "[ %d ]: %-20s %-16s model:%-20s product:%-20s\n" ${num} ${sn} ${device_type} ${model} ${product} >&2)
+            printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
+                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}" >&2
         done
 
-        nums[${#nums[*]}]=a
-        nums[${#nums[*]}]=A
+        nums[${#nums[@]}]=a
+        nums[${#nums[@]}]=A
     fi
 }
 
-: '
-1. 如果已包含 -s 参数, 则直接执行
-2. 如果只包含 devices 参数, 则添加 -l 参数
-'
-if [[ "$1" = "-s" ]]; then
-    adb $adb_args
-elif [[ "$1" = "start-server" ]]; then
-    adb $adb_args
-elif [[ "$1" = "kill-server" ]]; then
-    adb $adb_args
-elif [[ "$1" = "disconnect" ]]; then
-    adb $adb_args
-elif [[ "$1" = "connect" ]]; then
-    adb $adb_args
-elif [[ "devices" = "$1" ]]; then
-    if [[ $# -eq 1 ]]; then
-        adb $adb_args -l
+parse_device() {
+    local device key value
+    device=(${1//\// })
+    for ((i = 0; i < ${#device[@]}; i++)); do
+        IFS=':' read -r key value <<< "${device[i]}"
+        [[ $i -eq 0 ]] && { value="$key"; key="sn"; }
+        [[ $i -eq 1 ]] && { value="$key"; key="device_type"; }
+        dic_device["$key"]="$value"
+    done
+}
+
+# 1. 如果已包含 -s 参数, 则直接执行
+# 2. 如果只包含 devices 参数, 则添加 -l 参数
+main() {
+    adb_args=("$@")
+    if [[ "$1" = "-s" ]]; then
+        "${adb}" "${adb_args[@]}"
+    elif [[ "$1" = "start-server" ]]; then
+        "${adb}" "${adb_args[@]}"
+    elif [[ "$1" = "kill-server" ]]; then
+        "${adb}" "${adb_args[@]}"
+    elif [[ "$1" = "disconnect" ]]; then
+        "${adb}" "${adb_args[@]}"
+    elif [[ "$1" = "connect" ]]; then
+        "${adb}" "${adb_args[@]}"
+    elif [[ "$1" = "devices" ]]; then
+        if [[ $# -eq 1 ]]; then
+            adb ${adb_args[@]} -l
+        else
+            adb ${adb_args[@]}
+        fi
+    elif [[ "$1" = "alias" && ("$2" = "-h" || "$2" = "--help") ]]; then
+        print_help
+    elif [[ "$1" =~ alias\.[a-zA-Z0-9_]+ ]]; then
+        adb_alias "$@"
     else
-        adb $adb_args
+        print_devices
+        choose_device
     fi
-else
-    show_devices
-    select_device
-    exit 0
-fi
+}
+
+print_help() {
+    echo "Usage: adb alias.[alias] [command]"
+}
+
+adb_alias() {
+    echo "$(echo "$1" | cut -d ' ' -f 1 | cut -d '.' -f 2)=${*:2}" >> "${config}.alias"
+}
+
+read_alias
+main "$@"
