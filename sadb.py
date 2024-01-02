@@ -80,7 +80,9 @@ def main(adb_args):
         print("No command provided. Use -h or --help for usage information.")
         sys.exit(1)
 
-    if adb_args[0] == '-s':
+    local_cmds = {'-s', 'start-server', 'kill-server', 'disconnect', 'connect'}
+    
+    if adb_args[0] in local_cmds:
         subprocess.run([adb] + adb_args)
     elif adb_args[0] == 'devices':
         if len(adb_args) == 1:
