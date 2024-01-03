@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 c_green=$(tput setaf 2)
 c_reset=$(tput sgr0)
