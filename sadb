@@ -41,7 +41,7 @@ remove_alias() {
 
 exec_adb() {
     local num device args real_args
-    num=$(expr $1 + 2)
+    num=$(($1 + 2))
     device=$(sed -n "${num}p" <<< "$devices")
     args=(${device///})
 
