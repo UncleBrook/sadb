@@ -18,6 +18,27 @@ read_alias() {
     done < "${config}.alias"
 }
 
+remove_alias() {
+    if [[ -v alias["$1"] ]]; then
+        unset alias["$1"]
+
+        cp "${config}.alias" "${config}.alias.copy"
+        > "${config}.alias"
+
+        for key in "${!alias[@]}"; do
+            echo "$key=${alias[$key]}" >> "${config}.alias"
+        done
+
+        read_alias
+
+        rm "${config}.alias.copy"
+    else
+        printf "The alias does not contain the \"$1\"\n\n"
+        printf "List of alias:\n"
+        grep --color -E '^[^=]*|$' "${config}.alias"
+    fi
+}
+
 exec_adb() {
     local num device args real_args
     num=$(expr $1 + 2)
@@ -64,8 +85,11 @@ print_devices() {
     devices=$("${adb}" devices -l)
     device_count=$(wc -l <<< "$devices")
 
-    if [ "$device_count" -le 2 ]; then
-        exec_adb 0
+    if [ "$device_count" -eq 1 ]; then
+        printf "No devices attached \n\n"
+        exit 0
+    elif [ "$device_count" -eq 2 ]; then
+        exec_adb
         exit 0
     else
         echo "$devices" | head -n 1 >&2
@@ -109,14 +133,31 @@ main() {
             fi
             ;;
         alias)
-            if [[ "$2" = "-h" || "$2" = "--help" ]]; then
+            case "$2" in
+                -h|--help)
+                    print_help
+                    ;;
+                -l|--list)
+                    grep --color -E '^[^=]*|$' "${config}.alias"
+                    ;;
+                -r|--remove)
+                    if [[ -z "$3" ]]; then
+                        print_help
+                    else
+                        remove_alias "$3"
+                    fi
+                    ;;
+                *)
+                    print_help
+                    ;;
+            esac
+            ;;
+        alias.*)
+            if [[ -z "$2" ]]; then
                 print_help
             else
                 adb_alias "$@"
             fi
-            ;;
-        alias.*)
-            adb_alias "$@"
             ;;
         *)
             print_devices
@@ -126,7 +167,20 @@ main() {
 }
 
 print_help() {
-    echo "Usage: adb alias.[alias] [command]"
+cat << EOF
+Usage: 
+    ${0##*/} alias [<options>]
+    ${0##*/} alias.<options> [<options>]
+
+Options:
+    -h, --help          Display help information and exit
+    -l, --list          Display alias and exit
+    -r, --remove        Delete alias and exit
+
+Example:
+    ${0##*/} alias -r value
+
+EOF
 }
 
 adb_alias() {
