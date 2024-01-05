@@ -1,0 +1,9 @@
+activity=shell dumpsys activity top | grep ACTIVITY
+lunch=shell getprop ro.build.flavor
+putsec=shell settings put secure
+getglo=shell settings get global
+putglo=shell settings put global
+getsec=shell settings get secure
+model=shell getprop ro.product.model
+getsys=shell settings get system
+putsys=shell settings put system
