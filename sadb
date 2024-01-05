@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-
+set -e
 c_green=$(tput setaf 2)
+c_error=$(tput setaf 1)
 c_reset=$(tput sgr0)
 adb=$(which adb)
 config="${HOME}/.config/sadb/"
@@ -16,6 +17,28 @@ read_alias() {
     while IFS='=' read -r key value; do
         alias["$key"]="$value"
     done < "${config}.alias"
+}
+
+add_alias() {
+    local key prompt
+    key=$(echo "$1" | cut -d ' ' -f 1 | cut -d '.' -f 2)
+    if [[ -v alias["$key"] ]]; then
+        prompt="The original alias is ${c_error}'$key=${alias[$key]}'${c_reset}, would you like to overwrite it ${c_green}[y/n]${c_reset}:"
+        read -p "$prompt" answer
+        case $answer in
+            [Yy]* ) 
+                echo "$key=${*:2}" >> "${config}.alias"
+                ;;
+            [Nn]* ) 
+                exit 0
+                ;;
+            * ) 
+                exit 0
+                ;;
+        esac
+    else
+        echo "$key=${*:2}" >> "${config}.alias"
+    fi
 }
 
 remove_alias() {
@@ -38,6 +61,13 @@ remove_alias() {
         grep --color -E '^[^=]*|$' "${config}.alias"
     fi
 }
+
+show_alias() {
+    if [[ -v alias["$1"] ]]; then
+        printf "$1=${alias[$1]}\n"
+    fi
+}
+
 
 exec_adb() {
     local num device args real_args
@@ -119,6 +149,25 @@ parse_device() {
     done
 }
 
+print_help() {
+cat << EOF
+Usage: 
+    ${0##*/} alias [<options>]
+    ${0##*/} alias.<options> [<options>]
+
+Options:
+    -h, --help          Print help information and exit.
+    -l, --list          Print alias and exit.
+    -r, --remove        Delete alias and exit.
+    alias.[alias]       Set the alias and exit.
+    [alias]             Print the alias named "alias" and exit.
+
+Example:
+    ${0##*/} alias -r value
+
+EOF
+}
+
 main() {
     adb_args=("$@")
     case "$1" in
@@ -147,8 +196,11 @@ main() {
                         remove_alias "$3"
                     fi
                     ;;
-                *)
+                "")
                     print_help
+                    ;;
+                *)
+                    show_alias "$2"
                     ;;
             esac
             ;;
@@ -156,7 +208,7 @@ main() {
             if [[ -z "$2" ]]; then
                 print_help
             else
-                adb_alias "$@"
+                add_alias "$@"
             fi
             ;;
         *)
@@ -164,27 +216,6 @@ main() {
             choose_device
             ;;
     esac
-}
-
-print_help() {
-cat << EOF
-Usage: 
-    ${0##*/} alias [<options>]
-    ${0##*/} alias.<options> [<options>]
-
-Options:
-    -h, --help          Display help information and exit
-    -l, --list          Display alias and exit
-    -r, --remove        Delete alias and exit
-
-Example:
-    ${0##*/} alias -r value
-
-EOF
-}
-
-adb_alias() {
-    echo "$(echo "$1" | cut -d ' ' -f 1 | cut -d '.' -f 2)=${*:2}" >> "${config}.alias"
 }
 
 read_alias
