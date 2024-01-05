@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_URL="https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb"
 CONFIG_URL="https://raw.githubusercontent.com/UncleBrook/sadb/main/.alias"
 INSTALL_DIR="/usr/bin"
-CONFIG_DIR="$HOME/sadb/"
+CONFIG_DIR="$HOME/.config/sadb/"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -17,8 +17,10 @@ chmod +x "$INSTALL_DIR/sadb"
 
 echo "Initializing..."
 
-if ! grep -q ".env" "$HOME/.bashrc"; then
-    echo "source \"alias adb=sadb\"" >> "$HOME/.bashrc"
+if ! grep -q "adb='sadb'" "$HOME/.bashrc"; then
+    echo "# >>> sadb initialize >>>" >> "$HOME/.bashrc"
+    echo "alias adb='sadb'" >> "$HOME/.bashrc"
+    echo "# <<< sadb initialize <<<" >> "$HOME/.bashrc"
 fi
 
 echo "Install completed."
