@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+
 c_green=$(tput setaf 2)
 c_error=$(tput setaf 1)
 c_reset=$(tput sgr0)
