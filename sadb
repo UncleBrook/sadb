@@ -181,6 +181,9 @@ main() {
                 adb "${adb_args[@]}"
             fi
             ;;
+        version)
+            adb "${adb_args[@]}"
+            ;;
         alias)
             case "$2" in
                 -h|--help)
