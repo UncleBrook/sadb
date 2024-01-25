@@ -27,7 +27,9 @@ add_alias() {
         read -p "$prompt" answer
         case $answer in
             [Yy]* ) 
-                echo "$key=${*:2}" >> "${config}.alias"
+                local temp="$key=${*:2}"
+                remove_alias "$key"
+                echo "$temp" >> "${config}.alias"
                 ;;
             [Nn]* ) 
                 exit 0
@@ -39,6 +41,7 @@ add_alias() {
     else
         echo "$key=${*:2}" >> "${config}.alias"
     fi
+    read_alias
 }
 
 remove_alias() {
@@ -90,21 +93,22 @@ exec_adb() {
 }
 
 choose_device() {
-    local total_line num
+    local total_line input
     total_line=$(( device_count - 2 ))
 
     printf "\n" >&2
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
 
     while :; do
-        read -p "$tips" num
-        if [[ " ${nums[*]} " == *" ${num} "* ]]; then
-            if [[ "$num" == [aA] ]]; then
+        read -p "$tips" input
+
+        if [[ " ${nums[*]} " == *" ${input} "* ]]; then
+            if [[ "$input" == [aA] ]]; then
                 for s in "${nums[@]}"; do
                     [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"
                 done
             else
-                exec_adb "$num"
+                exec_adb "$input"
             fi
             break
         fi
