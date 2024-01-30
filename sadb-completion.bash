@@ -1,6 +1,6 @@
 _sadb_completion()
 {
-  local cur prev opts cmds c subcommand device_selected adb
+  local cur prev opts cmds c subcommand device_selected adb alias_cmds
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -21,6 +21,8 @@ _sadb_completion()
   # Find the real adb.
   adb=$(which adb)
   adb_paths=$(which -a adb)
+
+  alias_cmds=$(awk -F '=' '{ print $1}' "${HOME}/.config/sadb/.alias" | tr '\n' ' ')
 
   read -r line1 <<< "$adb_paths"
   if [[ "$line1" == *"adb: aliased to"* ]]; then
@@ -70,6 +72,12 @@ _sadb_completion()
           return 0
         fi
       fi
+
+      if [[ $alias_cmds ]]; then
+        cmds="$alias_cmds \ 
+              $cmds"
+      fi
+
       COMPREPLY=( $(compgen -W "${cmds}" -- ${cur}) )
       return 0
       ;;
