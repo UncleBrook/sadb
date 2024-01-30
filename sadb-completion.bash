@@ -64,18 +64,20 @@ _sadb_completion()
           return 0
           ;;
       esac
-      if [ -z "$device_selected" ]; then
-        local num_devices=$(( $($adb devices 2>/dev/null|wc -l) - 2 ))
-        if [ "$num_devices" -gt "1" ]; then
-          # With multiple devices, you must choose a device first.
-          COMPREPLY=( $(compgen -W "${opts} ${cmds_not_need_device}" -- ${cur}) )
-          return 0
-        fi
-      fi
 
       if [[ $alias_cmds ]]; then
-        cmds="$alias_cmds \ 
+        cmds="$cmds_not_need_device \ 
+              $alias_cmds \ 
               $cmds"
+      else 
+        if [ -z "$device_selected" ]; then
+          local num_devices=$(( $($adb devices 2>/dev/null|wc -l) - 2 ))
+          if [ "$num_devices" -gt "1" ]; then
+            # With multiple devices, you must choose a device first.
+            COMPREPLY=( $(compgen -W "${opts} ${cmds_not_need_device}" -- ${cur}) )
+            return 0
+          fi
+        fi
       fi
 
       COMPREPLY=( $(compgen -W "${cmds}" -- ${cur}) )
