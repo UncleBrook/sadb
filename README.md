@@ -54,9 +54,10 @@ source /usr/share/bash-completion/completions/sadb-completion.bash
 
 ## To-do
 
-- [X] ~~Select a device to execute a command~~
-- [X] Setting alias (e.g. `adb alias.ws 'shell wm size'`)
+- [X] Select a device to execute a command
+- [X] Setting alias (e.g. `adb alias.ws "shell wm size"`)
 
 ## Demo
 
-![](https://raw.githubusercontent.com/UncleBrook/sadb/main/screenshot/demo_0.gif)
+[![Demo of the sadb script](https://i.ytimg.com/vi/GebidcL_W64/maxresdefault.jpg)](https://www.youtube.com/watch?v=GebidcL_W64 "Demo of the sadb script")
+
