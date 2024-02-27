@@ -24,7 +24,8 @@ add_alias() {
     key=$(echo "$1" | cut -d ' ' -f 1 | cut -d '.' -f 2)
     if [[ -v alias["$key"] ]]; then
         prompt="The original alias is ${c_error}'$key=${alias[$key]}'${c_reset}, would you like to overwrite it ${c_green}[y/n]${c_reset}:"
-        read -p "$prompt" answer
+        printf '%s' "$prompt"
+        read -r answer
         case $answer in
             [Yy]* ) 
                 local temp="$key=${*:2}"
@@ -46,10 +47,10 @@ add_alias() {
 
 remove_alias() {
     if [[ -v alias["$1"] ]]; then
-        unset alias["$1"]
+        unset 'alias"["'"$1"'"]'
 
         cp "${config}.alias" "${config}.alias.copy"
-        > "${config}.alias"
+        true > "${config}.alias"
 
         for key in "${!alias[@]}"; do
             echo "$key=${alias[$key]}" >> "${config}.alias"
@@ -59,7 +60,7 @@ remove_alias() {
 
         rm "${config}.alias.copy"
     else
-        printf "The alias does not contain the \"$1\"\n\n"
+        printf "The alias does not contain the \"%s\"\n\n" "$1"
         printf "List of alias:\n"
         grep --color -E '^[^=]*|$' "${config}.alias"
     fi
@@ -67,27 +68,28 @@ remove_alias() {
 
 show_alias() {
     if [[ -v alias["$1"] ]]; then
-        printf "$1=${alias[$1]}\n"
+        printf "%s=%s\n" "$1" "${alias[$1]}"
     fi
 }
 
 
 exec_adb() {
-    local num device args real_args
+    local num device args
     num=$(($1 + 2))
     device=$(sed -n "${num}p" <<< "$devices")
-    args=(${device///})
+    IFS=" " read -ra args <<< "${device//\// }"
 
-    real_args="${alias[${adb_args[0]}]}"
+    alias_args="${alias[${adb_args[0]}]}"
 
-    if [[ -z "$real_args" ]]; then
-        real_args="${adb_args[@]}"
+    if [[ -z "$alias_args" ]]; then
+
+        printf "\n${c_green}%s ${c_reset}-s %s %s \n\n" "${adb}" "${args[0]}" "${adb_args[*]}">&2
+        "${adb}" -s "${args[0]}" "${adb_args[@]}"
     else
-        real_args="${real_args} ${adb_args[@]:1}"
-    fi
 
-    printf "\n${c_green}${adb} ${c_reset}-s ${args[0]} ${real_args}\n\n" >&2
-    ${adb} -s ${args[0]} ${real_args}
+        printf "\n${c_green}%s ${c_reset}-s %s %s %s \n\n" "${adb}" "${args[0]}" "${alias_args}" "${adb_args[*]:1}">&2
+        "${adb}" -s "${args[0]}" ${alias_args} "${adb_args[@]:1}"
+    fi
 
     printf "\n" >&2
 }
@@ -100,7 +102,8 @@ choose_device() {
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
 
     while :; do
-        read -p "$tips" input
+        printf '%s' "$tips"
+        read -r input
 
         if [[ " ${nums[*]} " == *" ${input} "* ]]; then
             if [[ "$input" == [aA] ]]; then
@@ -144,7 +147,11 @@ print_devices() {
 
 parse_device() {
     local device key value
-    device=(${1//\// })
+    IFS=" " read -ra device <<< "${1//\// }"
+    unset 'dic_device[sn]'
+    unset 'dic_device[device_type]'
+    unset 'dic_device[model]'
+    unset 'dic_device[product]'
     for ((i = 0; i < ${#device[@]}; i++)); do
         IFS=':' read -r key value <<< "${device[i]}"
         [[ $i -eq 0 ]] && { value="$key"; key="sn"; }
