@@ -160,6 +160,11 @@ parse_device() {
     done
 }
 
+print_exec_time() {
+    _date=$(date "+%Y-%m-%d %A %H:%M:%S")
+    printf "[ %s ]\n\n" "$_date">&2
+}
+
 print_help() {
 cat << EOF
 Usage: 
@@ -229,5 +234,6 @@ main() {
     esac
 }
 
+print_exec_time
 read_alias
 main "$@"
