@@ -47,7 +47,7 @@ add_alias() {
 
 remove_alias() {
     if [[ -v alias["$1"] ]]; then
-        unset 'alias"["'"$1"'"]'
+        unset alias["$1"]
 
         cp "${config}.alias" "${config}.alias.copy"
         true > "${config}.alias"
