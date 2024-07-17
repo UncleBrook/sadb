@@ -14,8 +14,12 @@ nums=()
 [[ ! -e "${config}.alias" ]] && touch "${config}.alias"
 
 read_alias() {
-    while IFS='=' read -r key value; do
-        alias["$key"]="$value"
+    while IFS= read -r line; do
+        if [[ ! "$line" =~ ^\s*# ]] && [[ -n "$line" ]]; then
+            key="${line%%=*}"
+            value="${line#*=}"
+            alias["$key"]="$value"
+        fi
     done < "${config}.alias"
 }
 
@@ -47,22 +51,12 @@ add_alias() {
 
 remove_alias() {
     if [[ -v alias["$1"] ]]; then
-        unset alias["$1"]
-
-        cp "${config}.alias" "${config}.alias.copy"
-        true > "${config}.alias"
-
-        for key in "${!alias[@]}"; do
-            echo "$key=${alias[$key]}" >> "${config}.alias"
-        done
-
+        sed -i "/^[[:space:]]*$1=/d" "${config}.alias"
         read_alias
-
-        rm "${config}.alias.copy"
     else
         printf "The alias does not contain the \"%s\"\n\n" "$1"
         printf "List of alias:\n"
-        grep --color -E '^[^=]*|$' "${config}.alias"
+        print_alias
     fi
 }
 
@@ -70,6 +64,12 @@ show_alias() {
     if [[ -v alias["$1"] ]]; then
         printf "%s=%s\n" "$1" "${alias[$1]}"
     fi
+}
+
+print_alias() {
+    for key in "${!alias[@]}"; do
+        printf "alias.%s=%s\n" "$key" "${alias[$key]}"
+    done
 }
 
 
@@ -203,7 +203,8 @@ main() {
                     print_help
                     ;;
                 -l|--list)
-                    grep --color -E '^[^=]*|$' "${config}.alias"
+                    # grep --color -E '^[^=]*|$' "${config}.alias"
+                    print_alias
                     ;;
                 -r|--remove)
                     if [[ -z "$3" ]]; then
