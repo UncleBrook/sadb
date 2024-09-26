@@ -12,9 +12,9 @@ _sadb_completion()
         reboot-bootloader reconnect remount restore reverse root shell \
         sideload start-server sync tcpip track-devices track-jdwp \
         uninstall unroot usb version wait-for-bootloader wait-for-device \
-        wait-for-recovery wait-for-sideload alias"
+        wait-for-recovery wait-for-sideload alias active"
   cmds_not_need_device="connect devices disconnect help keygen kill-server \
-                        start-server version alias"
+                        start-server version alias active"
   subcommand=""
   device_selected=""
 

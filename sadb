@@ -11,7 +11,11 @@ declare -A dic_device
 declare -A alias
 nums=()
 
+active_device_num=-1
+
 [[ ! -e "${config}.alias" ]] && touch "${config}.alias"
+
+[[ ! -e "${config}.envsetup.sh" ]] && touch "${config}.envsetup.sh"
 
 read_alias() {
     while IFS= read -r line; do
@@ -101,6 +105,12 @@ choose_device() {
     printf "\n" >&2
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
 
+    if [ $active_device_num -ne -1 ]; then
+        printf '%s %s' "$tips" "$active_device_num"
+        exec_adb "$active_device_num"
+        exit 0
+    fi
+
     while :; do
         printf '%s' "$tips"
         read -r input
@@ -129,6 +139,7 @@ print_devices() {
         exec_adb
         exit 0
     else
+        local active=$(echo $ACTIVE_DEVICE)
         echo "$devices" | head -n 1 >&2
         for line in $(seq 2 "$device_count"); do
             num=$(( line - 2 ))
@@ -138,6 +149,10 @@ print_devices() {
 
             printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
                 "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}" >&2
+
+            if [ "$active" = "${dic_device[sn]}" ]; then
+                active_device_num=$num
+            fi
         done
 
         nums[${#nums[@]}]=a
@@ -165,6 +180,16 @@ print_exec_time() {
     printf "[ %s ]\n\n" "$_date">&2
 }
 
+set_active_device() {
+    echo "export ACTIVE_DEVICE=$1" > "${config}.envsetup.sh"
+    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "source ${config}.envsetup.sh"
+}
+
+unset_active_device() {
+    echo "unset ACTIVE_DEVICE" > "${config}.envsetup.sh"
+    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "source ${config}.envsetup.sh"
+}
+
 print_help() {
 cat << EOF
 Usage: 
@@ -176,6 +201,8 @@ Options:
     -l, --list          Print alias and exit.
     -r, --remove        Delete alias and exit.
     alias.[alias]       Set the alias and exit.
+    active              Set the current active device and exit.
+    active -d           Clear the environment variables and exit.
     [alias]             Print the alias named "alias" and exit.
 
 Example:
@@ -227,6 +254,16 @@ main() {
             else
                 add_alias "$@"
             fi
+            ;;
+        active)
+            case "$2" in
+                -d)
+                    unset_active_device
+                    ;;
+                *)
+                    set_active_device "$2"
+                    ;;
+            esac
             ;;
         *)
             print_devices
