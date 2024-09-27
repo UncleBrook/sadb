@@ -104,7 +104,6 @@ choose_device() {
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
 
     if [ $active_device_num -ne -1 ]; then
-        printf '%s %s' "$tips" "$active_device_num"
         exec_adb "$active_device_num"
         exit 0
     fi
@@ -138,20 +137,29 @@ print_devices() {
         exit 0
     else
         local active=$(echo $ACTIVE_DEVICE)
-        echo "$devices" | head -n 1 >&2
+        local device_details=[]
+        IFS=$'\n' read -r -d '' -a device_details <<< $(echo "$devices" | head -n 1 >&2)
         for line in $(seq 2 "$device_count"); do
             num=$(( line - 2 ))
             nums[$num]=$num
 
             parse_device "$(sed -n "${line}p" <<< "$devices")"
 
-            printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
-                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}" >&2
-
             if [ "$active" = "${dic_device[sn]}" ]; then
                 active_device_num=$num
+                break
+            else
+                output=$(printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
+                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}" >&2)
+                IFS=$'\n' read -r -d '' -a device_details <<< "$output"
             fi
         done
+
+        if [ $active_device_num -eq -1 ]; then
+            for item in "${device_details[@]}"; do
+                printf "$item"
+            done
+        fi
 
         nums[${#nums[@]}]=a
         nums[${#nums[@]}]=A
