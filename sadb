@@ -15,8 +15,6 @@ active_device_num=-1
 
 [[ ! -e "${config}.alias" ]] && touch "${config}.alias"
 
-[[ ! -e "${config}.envsetup.sh" ]] && touch "${config}.envsetup.sh"
-
 read_alias() {
     while IFS= read -r line; do
         if [[ ! "$line" =~ ^\s*# ]] && [[ -n "$line" ]]; then
@@ -181,13 +179,11 @@ print_exec_time() {
 }
 
 set_active_device() {
-    echo "export ACTIVE_DEVICE=$1" > "${config}.envsetup.sh"
-    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "source ${config}.envsetup.sh"
+    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "export ACTIVE_DEVICE=$1"
 }
 
 unset_active_device() {
-    echo "unset ACTIVE_DEVICE" > "${config}.envsetup.sh"
-    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "source ${config}.envsetup.sh"
+    printf "%s\n${c_green}%s\n" "Please copy and execute the following command:" "unset ACTIVE_DEVICE"
 }
 
 print_help() {
