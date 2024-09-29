@@ -97,16 +97,16 @@ exec_adb() {
 }
 
 choose_device() {
+    if [ $active_device_num -ne -1 ]; then
+        exec_adb "$active_device_num"
+        exit 0
+    fi
+
     local total_line input
     total_line=$(( device_count - 2 ))
 
     printf "\n" >&2
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
-
-    if [ $active_device_num -ne -1 ]; then
-        exec_adb "$active_device_num"
-        exit 0
-    fi
 
     while :; do
         printf '%s' "$tips"
@@ -137,8 +137,8 @@ print_devices() {
         exit 0
     else
         local active=$(echo $ACTIVE_DEVICE)
-        local device_details=[]
-        IFS=$'\n' read -r -d '' -a device_details <<< $(echo "$devices" | head -n 1 >&2)
+        local details=("" "$(echo "$devices" | head -n 1)")
+        
         for line in $(seq 2 "$device_count"); do
             num=$(( line - 2 ))
             nums[$num]=$num
@@ -149,15 +149,15 @@ print_devices() {
                 active_device_num=$num
                 break
             else
-                output=$(printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
-                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}" >&2)
-                IFS=$'\n' read -r -d '' -a device_details <<< "$output"
+                device=$(printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
+                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
+                details+=("$device")
             fi
         done
 
         if [ $active_device_num -eq -1 ]; then
-            for item in "${device_details[@]}"; do
-                printf "$item"
+            for line in "${details[@]}"; do
+                printf "$line\n"
             done
         fi
 
@@ -183,7 +183,7 @@ parse_device() {
 
 print_exec_time() {
     _date=$(date "+%Y-%m-%d %A %H:%M:%S")
-    printf "[ %s ]\n\n" "$_date">&2
+    printf "[ %s ]\n" "$_date">&2
 }
 
 set_active_device() {
