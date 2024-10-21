@@ -109,7 +109,7 @@ choose_device() {
     local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
 
     while :; do
-        printf '%s' "$tips"
+        echo -n "$tips" >&2
         read -r input
 
         if [[ " ${nums[*]} " == *" ${input} "* ]]; then
@@ -157,7 +157,7 @@ print_devices() {
 
         if [ $active_device_num -eq -1 ]; then
             for line in "${details[@]}"; do
-                printf "$line\n"
+                echo "$line" >&2
             done
         fi
 
