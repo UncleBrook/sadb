@@ -2,6 +2,9 @@
 
 c_green=$(tput setaf 2)
 c_error=$(tput setaf 1)
+c_cyan=$(tput setaf 6)
+c_yellow=$(tput setaf 3)
+c_bold=$(tput bold)
 c_reset=$(tput sgr0)
 adb=$(which adb)
 config="${HOME}/.config/sadb/"
@@ -9,6 +12,7 @@ mkdir -p "$config"
 
 declare -A dic_device
 declare -A alias
+declare -A methods
 nums=()
 
 active_device_num=-1
@@ -16,44 +20,65 @@ active_device_num=-1
 [[ ! -e "${config}.alias" ]] && touch "${config}.alias"
 
 read_alias() {
-    while IFS= read -r line; do
-        if [[ ! "$line" =~ ^\s*# ]] && [[ -n "$line" ]]; then
-            key="${line%%=*}"
-            value="${line#*=}"
+    # 清空现有别名和方法
+    alias=()
+    methods=()
+    
+    # 使用专门的文件描述符读取，避免嵌套 read 冲突
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # 跳过注释和空行
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// /}" ]] && continue
+
+        # 匹配方法定义: name() {
+        if [[ "$line" =~ ^[[:space:]]*([a-zA-Z0-9_-]+)[[:space:]]*\(\)[[:space:]]*\{ ]]; then
+            local method_name="${BASH_REMATCH[1]}"
+            local method_body=""
+            while IFS= read -r next_line || [[ -n "$next_line" ]]; do
+                if [[ "$next_line" =~ ^[[:space:]]*\}[[:space:]]*$ ]]; then
+                    break
+                fi
+                method_body+="$next_line"$'\n'
+            done
+            methods["$method_name"]="$method_body"
+        # 匹配普通别名: key=value
+        elif [[ "$line" == *"="* ]]; then
+            local key="${line%%=*}"
+            local value="${line#*=}"
+            # 去除 key 的首尾空格
+            key=$(echo "$key" | xargs)
             alias["$key"]="$value"
         fi
     done < "${config}.alias"
 }
 
 add_alias() {
-    local key prompt
-    key=$(echo "$1" | cut -d ' ' -f 1 | cut -d '.' -f 2)
+    local key="$1"
+    local value="${*:2}"
+    local prompt
+    
     if [[ -v alias["$key"] ]]; then
         prompt="The original alias is ${c_error}'$key=${alias[$key]}'${c_reset}, would you like to overwrite it ${c_green}[y/n]${c_reset}:"
         printf '%s' "$prompt"
         read -r answer
         case $answer in
             [Yy]* ) 
-                local temp="$key=${*:2}"
                 remove_alias "$key"
-                echo "$temp" >> "${config}.alias"
-                ;;
-            [Nn]* ) 
-                exit 0
+                echo "$key=$value" >> "${config}.alias"
                 ;;
             * ) 
                 exit 0
                 ;;
         esac
     else
-        echo "$key=${*:2}" >> "${config}.alias"
+        echo "$key=$value" >> "${config}.alias"
     fi
     read_alias
 }
 
 remove_alias() {
     if [[ -v alias["$1"] ]]; then
-        sed -i "/^[[:space:]]*$1=/d" "${config}.alias"
+        sed_i "/^[[:space:]]*$1=/d" "${config}.alias"
         read_alias
     else
         printf "The alias does not contain the \"%s\"\n\n" "$1"
@@ -72,25 +97,70 @@ print_alias() {
     for key in "${!alias[@]}"; do
         printf "alias.%s=%s\n" "$key" "${alias[$key]}"
     done
+    for key in "${!methods[@]}"; do
+        printf "method.%s() {\n%s}\n" "$key" "${methods[$key]}"
+    done
 }
 
+sed_i() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
 
 exec_adb() {
-    local num device args
-    num=$(($1 + 2))
-    device=$(sed -n "${num}p" <<< "$devices")
-    IFS=" " read -ra args <<< "${device//\// }"
-
-    alias_args="${alias[${adb_args[0]}]}"
-
-    if [[ -z "$alias_args" ]]; then
-
-        printf "\n${c_green}%s ${c_reset}-s %s %s \n\n" "${adb}" "${args[0]}" "${adb_args[*]}">&2
-        "${adb}" -s "${args[0]}" "${adb_args[@]}"
+    local num device args sn
+    if [[ -z "$1" ]]; then
+        num=2
     else
+        num=$(($1 + 2))
+    fi
+    
+    device=$(sed -n "${num}p" <<< "$devices")
+    [[ -z "$device" ]] && return
+    IFS=" " read -ra args <<< "${device//\// }"
+    sn="${args[0]}"
 
-        printf "\n${c_green}%s ${c_reset}-s %s %s %s \n\n" "${adb}" "${args[0]}" "${alias_args}" "${adb_args[*]:1}">&2
-        "${adb}" -s "${args[0]}" ${alias_args} "${adb_args[@]:1}"
+    # 设置环境变量，使得 method 和 alias 中的 adb 命令无需手动加 -s
+    export ANDROID_SERIAL="$sn"
+
+    # 获取用户输入的第一个参数作为 key
+    local cmd_key="${adb_args[0]}"
+    
+    # 查找匹配的 method 或 alias
+    method_body="${methods[$cmd_key]}"
+    alias_args="${alias[$cmd_key]}"
+
+    # --- 样式与内容优化的执行头 ---
+    printf "\n" >&2 # 顶部留空
+    if [[ -n "$method_body" ]]; then
+        printf "${c_cyan}${c_bold}>>> Method: ${c_yellow}%s${c_cyan} on ${c_green}%s${c_reset}\n" \
+               "$cmd_key" "$sn" >&2
+        (
+            set -- "${adb_args[@]:1}"
+            
+            # 定义本地 adb 函数包装器，自动处理格式
+            adb() {
+                printf "\n${c_cyan}${c_bold}>>> Command: ${c_green}%s -s %s ${c_yellow}%s${c_reset}\n\n" \
+                       "${adb##*/}" "$ANDROID_SERIAL" "$*" >&2
+                "$adb" "$@"
+                printf "\n" >&2
+            }
+            
+            eval "$method_body"
+        )
+    elif [[ -n "$alias_args" ]]; then
+        # 打印展开后的完整别名命令
+        printf "${c_cyan}${c_bold}>>> Command: ${c_green}%s -s %s ${c_yellow}%s %s${c_reset}\n\n" \
+               "${adb##*/}" "$sn" "${alias_args}" "${adb_args[*]:1}" >&2
+        "${adb}" -s "$sn" ${alias_args} "${adb_args[@]:1}"
+    else
+        # 打印完整普通命令
+        printf "${c_cyan}${c_bold}>>> Command: ${c_green}%s -s %s ${c_yellow}%s${c_reset}\n\n" \
+               "${adb##*/}" "$sn" "${adb_args[*]}" >&2
+        "${adb}" -s "$sn" "${adb_args[@]}"
     fi
 
     printf "\n" >&2
@@ -102,11 +172,22 @@ choose_device() {
         exit 0
     fi
 
+    if command -v fzf >/dev/null 2>&1; then
+        local choice
+        # 优化 fzf 样式
+        choice=$(printf "%s\n" "${details[@]:2}" | fzf --header="${details[1]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
+        if [[ -n "$choice" ]]; then
+            local num=$(echo "$choice" | grep -oP "\[ \K[0-9]+(?= \])")
+            exec_adb "$num"
+            exit 0
+        fi
+    fi
+
     local total_line input
     total_line=$(( device_count - 2 ))
 
     printf "\n" >&2
-    local tips="More than one device/emulator, please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a/A]${c_reset}: "
+    local tips="Multiple devices found. Please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a]${c_reset} for all: "
 
     while :; do
         echo -n "$tips" >&2
@@ -130,34 +211,43 @@ print_devices() {
     device_count=$(wc -l <<< "$devices")
 
     if [ "$device_count" -eq 1 ]; then
-        printf "No devices attached \n\n"
+        printf "${c_yellow}No devices attached${c_reset}\n\n"
         exit 0
     elif [ "$device_count" -eq 2 ]; then
         exec_adb
         exit 0
     else
         local active=$(echo $ACTIVE_DEVICE)
-        local details=("" "$(echo "$devices" | head -n 1)")
+        
+        # 打印对齐的表头
+        local header=$(printf "${c_bold}%-6s %-20s %-12s %-20s %-20s${c_reset}" \
+                      "ID" "SERIAL" "STATUS" "MODEL" "PRODUCT")
+        local details=("" "$header")
         
         for line in $(seq 2 "$device_count"); do
             num=$(( line - 2 ))
             nums[$num]=$num
 
             parse_device "$(sed -n "${line}p" <<< "$devices")"
+            
+            # 根据状态着色
+            local status_color="$c_green"
+            [[ "${dic_device[device_type]}" == "offline" ]] && status_color="$c_error"
+            [[ "${dic_device[device_type]}" == "unauthorized" ]] && status_color="$c_yellow"
 
             if [ "$active" = "${dic_device[sn]}" ]; then
                 active_device_num=$num
                 break
             else
-                device=$(printf "${c_green}[ %d ]${c_reset} sn: %-20s ${c_reset}%-16s model: %-20s product: %-20s\n" \
-                "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
-                details+=("$device")
+                local row=$(printf "${c_cyan}[ %d ]${c_reset} %-20s ${status_color}%-12s${c_reset} %-20s %-20s" \
+                           "$num" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
+                details+=("$row")
             fi
         done
 
         if [ $active_device_num -eq -1 ]; then
             for line in "${details[@]}"; do
-                echo "$line" >&2
+                echo -e "$line" >&2
             done
         fi
 
@@ -182,8 +272,8 @@ parse_device() {
 }
 
 print_exec_time() {
-    _date=$(date "+%Y-%m-%d %A %H:%M:%S")
-    printf "[ %s ]\n" "$_date">&2
+    _date=$(date "+%H:%M:%S")
+    printf "${c_cyan}[ %s ]${c_reset}\n" "$_date">&2
 }
 
 set_active_device() {
@@ -218,14 +308,14 @@ EOF
 main() {
     adb_args=("$@")
     case "$1" in
-        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|help|keygen|version)
+        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|help|keygen|reconnect|mdns|host-features|emu)
             "${adb}" "${adb_args[@]}"
             ;;
         devices)
             if [[ $# -eq 1 ]]; then
-                adb "${adb_args[@]}" -l
+                "${adb}" "${adb_args[@]}" -l
             else
-                adb "${adb_args[@]}"
+                "${adb}" "${adb_args[@]}"
             fi
             ;;
         alias)
@@ -234,7 +324,6 @@ main() {
                     print_help
                     ;;
                 -l|--list)
-                    # grep --color -E '^[^=]*|$' "${config}.alias"
                     print_alias
                     ;;
                 -r|--remove)
@@ -248,7 +337,12 @@ main() {
                     print_help
                     ;;
                 *)
-                    show_alias "$2"
+                    if [[ $# -gt 2 ]]; then
+                        # 支持格式: sadb alias name value...
+                        add_alias "$2" "${@:3}"
+                    else
+                        show_alias "$2"
+                    fi
                     ;;
             esac
             ;;
@@ -256,7 +350,9 @@ main() {
             if [[ -z "$2" ]]; then
                 print_help
             else
-                add_alias "$@"
+                # 支持格式: sadb alias.name value...
+                local key="${1#alias.}"
+                add_alias "$key" "${@:2}"
             fi
             ;;
         active)

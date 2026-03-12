@@ -14,7 +14,8 @@ _sadb_completion()
         uninstall unroot usb version wait-for-bootloader wait-for-device \
         wait-for-recovery wait-for-sideload alias active"
   cmds_not_need_device="connect devices disconnect help keygen kill-server \
-                        start-server version alias active"
+                        start-server version alias active pair reconnect mdns \
+                        host-features emu"
   subcommand=""
   device_selected=""
 
