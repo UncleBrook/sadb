@@ -132,13 +132,8 @@ choose_device() {
     local input=""
     local print_list=false
 
-    # 1. 50ms 盲打预检 (尊重肌肉记忆，避免输入不同步)
-    if read -t 0.05 -n 1 -r pre_input; then
-        input="$pre_input"
-        [[ "$pre_input" != "" ]] && { read -r rest_input; input="${pre_input}${rest_input}"; }
-        print_list=true
-    # 2. 默认使用 fzf (如果已安装)
-    elif command -v fzf >/dev/null 2>&1; then
+    # 1. 默认使用 fzf (如果已安装)
+    if command -v fzf >/dev/null 2>&1; then
         local choice
         choice=$(printf "%b\n" "${details[@]:2}" | fzf --header="${details[1]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
         if [[ -n "$choice" ]]; then
