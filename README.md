@@ -39,6 +39,38 @@ sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/sadb
 source /usr/share/bash-completion/completions/sadb
 ```
 
+## 📖 Commands Reference
+
+`sadb` supports all standard `adb` commands and adds several powerful management features.
+
+### 🧩 Alias Management
+The `alias` command allows you to manage short commands and complex methods.
+
+| Command | Description |
+| :--- | :--- |
+| `sadb alias -l -s [mode]` | 列出并排序 (`a\|alpha`, `r\|reverse`, `l\|length`) |
+| `sadb alias -r <key>` | 删除指定的别名或方法 |
+| `sadb alias -h`, `--help` | 显示别名系统的详细帮助信息 |
+| `sadb alias <key> <value>` | 添加或更新一个别名 |
+| `sadb alias.<key> <value>` | 添加别名的快捷方式 |
+| `sadb alias <key>` | 查看特定别名的定义 |
+
+### 🎯 Active Device Control
+Lock your session to a specific device to avoid selection prompts.
+
+| Command | Description |
+| :--- | :--- |
+| `sadb active <serial>` | 将指定设备设为当前活动设备 |
+| `sadb active -d` | 取消当前的活动设备锁定 |
+
+### 📱 Device Listing
+| Command | Description |
+| :--- | :--- |
+| `sadb devices` | 以美化表格的形式列出所有已连接的设备 |
+
+### ⚙️ Standard ADB Passthrough
+Commands like `start-server`, `kill-server`, `connect`, `pair`, `version`, etc., are passed directly to the original `adb` binary.
+
 ## 💡 Usage Examples
 
 ### Interactive Selection

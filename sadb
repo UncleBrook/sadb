@@ -33,7 +33,7 @@ read_alias() {
             local method_name="${BASH_REMATCH[1]}"
             local method_body=""
             while IFS= read -r next_line || [[ -n "$next_line" ]]; do
-                if [[ "$next_line" == "}" ]]; then
+                if [[ "$next_line" =~ ^[[:space:]]*\}[[:space:]]*$ ]]; then
                     break
                 fi
                 method_body+="$next_line"$'\n'
@@ -42,6 +42,7 @@ read_alias() {
         elif [[ "$line" == *"="* ]]; then
             local key="${line%%=*}"
             local value="${line#*=}"
+            # Trim whitespace from both key and value
             key=$(echo "$key" | xargs)
             value=$(echo "$value" | xargs)
             alias["$key"]="$value"
@@ -77,8 +78,33 @@ show_alias() {
 }
 
 print_alias() {
-    for key in "${!alias[@]}"; do printf "alias.%s=%s\n" "$key" "${alias[$key]}"; done
-    for key in "${!methods[@]}"; do printf "method.%s() {\n%s}\n" "$key" "${methods[$key]}"; done
+    local mode="${1:-alpha}"
+    local alias_keys=("${!alias[@]}")
+    local method_keys=("${!methods[@]}")
+
+    # 排序逻辑
+    sort_keys() {
+        local input_keys=("$@")
+        case "$mode" in
+            a|alpha)   printf "%s\n" "${input_keys[@]}" | sort ;;
+            r|reverse) printf "%s\n" "${input_keys[@]}" | sort -r ;;
+            l|length)  printf "%s\n" "${input_keys[@]}" | awk '{ print length, $0 }' | sort -n | cut -d" " -f2- ;;
+            *)         printf "%s\n" "${input_keys[@]}" ;;
+        esac
+    }
+
+    local sorted_alias=($(sort_keys "${alias_keys[@]}"))
+    local sorted_methods=($(sort_keys "${method_keys[@]}"))
+
+    printf "${c_bold}${c_cyan}--- Aliases ---${c_reset}\n"
+    for key in "${sorted_alias[@]}"; do
+        [[ -n "$key" ]] && printf "alias.${c_green}%-20s${c_reset} = %s\n" "$key" "${alias[$key]}"
+    done
+
+    printf "\n${c_bold}${c_cyan}--- Methods ---${c_reset}\n"
+    for key in "${sorted_methods[@]}"; do
+        [[ -n "$key" ]] && printf "method.${c_yellow}%s${c_reset}() {\n%s}\n\n" "$key" "${methods[$key]}"
+    done
 }
 
 sed_i() {
@@ -105,7 +131,6 @@ exec_adb() {
             adb() {
                 printf "\n${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
                 command adb "$@"
-                printf "\n" >&2
             }
             eval "$method_body"
         )
@@ -237,8 +262,25 @@ main() {
             [[ $# -eq 1 ]] && command adb "${adb_args[@]}" -l || command adb "${adb_args[@]}" ;;
         alias)
             case "$2" in
-                -l|--list) print_alias ;;
+                -l|--list) 
+                    if [[ "$3" == "-s" ]]; then
+                        print_alias "${4:-alpha}"
+                    else
+                        print_alias "none"
+                    fi
+                    ;;
                 -r|--remove) [[ -z "$3" ]] && exit 1 || remove_alias "$3" ;;
+                -h|--help)
+                    printf "${c_bold}用法:${c_reset} sadb alias [选项] [键] [值...]\n\n"
+                    printf "${c_bold}选项:${c_reset}\n"
+                    printf "  -l, --list [-s 模式]    列出所有别名和方法 (模式: a|alpha, r|reverse, l|length)\n"
+                    printf "  -r, --remove <键>       删除指定的别名\n"
+                    printf "  -h, --help              显示此帮助信息\n\n"
+                    printf "${c_bold}命令:${c_reset}\n"
+                    printf "  sadb alias <键> <值>    添加或更新别名 (例如: sadb alias c \"shell screencap\")\n"
+                    printf "  sadb alias.<键> <值>    添加别名的快捷方式\n"
+                    printf "  sadb alias <键>         查看特定别名的定义\n"
+                    ;;
                 *) [[ $# -gt 2 ]] && add_alias "$2" "${@:3}" || show_alias "$2" ;;
             esac ;;
         alias.*)
