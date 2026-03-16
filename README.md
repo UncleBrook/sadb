@@ -1,63 +1,90 @@
-# sadb
+# 🚀 sadb (Smart ADB)
 
-+ Interactive adb: when connecting multiple devices, select 1, 2 or more devices to execute a command
-+ Support for setting alias (e.g. `adb alias.topActivity "shell dumpsys activity top | grep ACTIVITY"`)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Bash Version](https://img.shields.io/badge/bash-%3E%3D%204.0-green.svg)](https://www.gnu.org/software/bash/)
 
-## Installation-sadb
+`sadb` is a powerful wrapper for Android Debug Bridge (`adb`) that simplifies multi-device management and command automation.
 
+## ✨ Key Features
+
+- **📱 Smart Device Selection**: Automatically prompts for device selection when multiple devices are connected. Supports `fzf` for fuzzy searching.
+- **⚡ Batch Execution**: Run a single command on ALL connected devices simultaneously.
+- **🔗 Command Aliases**: Define short aliases for complex adb commands (e.g., `sadb alias log "logcat -v time"`).
+- **🛠️ Custom Methods**: Create powerful multi-line scripts combining `adb` and local shell commands with automatic device targeting.
+- **🎯 Active Device Lock**: Lock onto a specific device serial to skip selection prompts.
+- **🎨 Modern UI**: Beautifully formatted tables with status-based coloring and clear execution headers.
+
+## 🚀 Installation
+
+### Quick Install
 ```shell
-$ sudo su
-$ curl https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb > /usr/bin/sadb && sudo chmod a+x /usr/bin/sadb
+curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
 ```
 
-or
+### Manual Installation
+1. Download the script:
+   ```shell
+   curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb > /usr/local/bin/sadb
+   chmod +x /usr/local/bin/sadb
+   ```
+2. (Recommended) Add an alias to your `~/.bashrc` or `~/.zshrc`:
+   ```shell
+   alias adb="sadb"
+   ```
 
+### Shell Completion
 ```shell
-$ git clone https://github.com/UncleBrook/sadb.git ~/sadb
-$ sudo mv ~/sadb/sadb /usr/bin/ && sudo chmod a+x /usr/bin/sadb && rm -rf ~/sadb
+# For Bash
+sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/sadb
+source /usr/share/bash-completion/completions/sadb
 ```
 
-or
+## 💡 Usage Examples
 
+### Interactive Selection
+If multiple devices are connected, simply run any adb command:
 ```shell
-$ su
-$ curl https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
+sadb shell
+```
+*If `fzf` is installed, you can search and select your device instantly.*
+
+### Aliases
+```shell
+# Create an alias
+sadb alias ws "wm size"
+
+# Use it
+sadb ws
 ```
 
-and then add `alias adb="sadb"` to `~/.bashrc` or `~/.bash_profile`
+### Methods (Automation)
+Define complex workflows in `~/.config/sadb/.alias`:
+```bash
+# Example Method
+my_workflow() {
+    local scale=$1
+    echo "Starting workflow..."
+    adb shell settings put global window_animation_scale $scale
+    adb shell settings put global transition_animation_scale $scale
+    adb shell settings put global animator_duration_scale $scale
+    echo "Workflow complete!"
+}
+```
+*`sadb` automatically injects `ANDROID_SERIAL`, so you don't need `-s` inside methods.*
 
-## Installation-sadb-completion
-
-`bash`
-
+### Active Device
 ```shell
-$ sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/
+sadb active <serial_number>  # Set active device
+sadb active -d              # Unset
 ```
 
-`zsh` 
+## 📋 Requirements
+- **Bash v4.0+** (Required for associative arrays)
+- **adb** (Android SDK Platform-Tools)
+- **fzf** (Optional, for better interactive experience)
 
-```shell
-$ sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/
-$ cd ~
-$ vim .zshrc
-
-# adding the following content to your .zshrc file.
-source /usr/share/bash-completion/completions/sadb-completion.bash
-```
-
-## Requirements
-
-- `bash` version needs to be greater than v3.2
-  > 1. `declare -A` is not supported before v3.2
-  > 2. `bash --version` to view bash version
-  >
-
-## To-do
-
-- [X] Select a device to execute a command
-- [X] Setting alias (e.g. `adb alias.ws "shell wm size"`)
-
-## Demo
-
+## 🎥 Demo
 [![Demo of the sadb script](https://i.ytimg.com/vi/GebidcL_W64/maxresdefault.jpg)](https://www.youtube.com/watch?v=GebidcL_W64 "Demo of the sadb script")
 
+## 📄 License
+This project is licensed under the [Apache License 2.0](LICENSE).
