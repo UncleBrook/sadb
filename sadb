@@ -33,7 +33,7 @@ read_alias() {
             local method_name="${BASH_REMATCH[1]}"
             local method_body=""
             while IFS= read -r next_line || [[ -n "$next_line" ]]; do
-                if [[ "$next_line" =~ ^[[:space:]]*\}[[:space:]]*$ ]]; then
+                if [[ "$next_line" == "}" ]]; then
                     break
                 fi
                 method_body+="$next_line"$'\n'
@@ -42,7 +42,6 @@ read_alias() {
         elif [[ "$line" == *"="* ]]; then
             local key="${line%%=*}"
             local value="${line#*=}"
-            # Trim whitespace from both key and value
             key=$(echo "$key" | xargs)
             value=$(echo "$value" | xargs)
             alias["$key"]="$value"
@@ -99,13 +98,12 @@ exec_adb() {
     local method_body="${methods[$cmd_key]}"
     local alias_args="${alias[$cmd_key]}"
 
-    printf "\n" >&2
     if [[ -n "$method_body" ]]; then
         printf "${c_cyan}${c_bold}>>> Method: ${c_yellow}%s${c_reset}${c_cyan} on ${c_green}%s${c_reset}\n" "$cmd_key" "$sn" >&2
         (
             set -- "${adb_args[@]:1}"
             adb() {
-                printf "\n${c_cyan}${c_bold}>>> Command: ${c_green}%s -s %s ${c_yellow}%s${c_reset}\n\n" "adb" "$ANDROID_SERIAL" "$*" >&2
+                printf "\n${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
                 command adb "$@"
                 printf "\n" >&2
             }
@@ -135,7 +133,7 @@ choose_device() {
     # 1. 默认使用 fzf (如果已安装)
     if command -v fzf >/dev/null 2>&1; then
         local choice
-        choice=$(printf "%b\n" "${details[@]:2}" | fzf --header="${details[1]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
+        choice=$(printf "%b\n" "${details[@]:1}" | fzf --header="${details[0]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
         if [[ -n "$choice" ]]; then
             if [[ "$choice" == *"[ a ]"* ]]; then
                 for s in "${nums[@]}"; do [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"; done
@@ -145,24 +143,21 @@ choose_device() {
                 [[ -n "$num" ]] && { exec_adb "$num"; exit 0; }
             fi
         else
-            # fzf ESC 退出，标记需要打印列表并回退到手动输入
             print_list=true
         fi
     else
-        # fzf 未安装，标记需要打印列表
         print_list=true
     fi
 
-    # 仅当未使用 fzf 成功选择时，才在终端打印列表，避免重复输出
     if $print_list; then
         for line in "${details[@]}"; do echo -e "$line" >&2; done
         echo -n "$tips" >&2
     fi
 
-    # 3. 标准输入循环 (回退方案)
     while :; do
         [[ -z "$input" ]] && read -r input
         if [[ " ${nums[*]} " == *" ${input} "* ]]; then
+            printf "\n" >&2
             if [[ "$input" == [aA] ]]; then
                 for s in "${nums[@]}"; do [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"; done
             else
@@ -182,9 +177,8 @@ print_devices() {
     [[ "$device_count" -eq 2 ]] && { exec_adb; exit 0; }
 
     local active=$(echo $ACTIVE_DEVICE)
-    # 精确对齐：ID(6), SERIAL(24), STATUS(12), MODEL(20), PRODUCT(20)
     local header=$(printf "${c_bold}%-6s %-24s %-12s %-20s %-20s${c_reset}" "ID" "SERIAL" "STATUS" "MODEL" "PRODUCT")
-    details=("" "$header")
+    details=("$header")
     
     for line in $(seq 2 "$device_count"); do
         num=$(( line - 2 ))
