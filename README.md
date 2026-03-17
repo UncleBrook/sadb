@@ -11,7 +11,7 @@
 - **⚡ Batch Execution**: Run a single command on ALL connected devices simultaneously.
 - **🔗 Command Aliases**: Define short aliases for complex adb commands (e.g., `sadb alias log "logcat -v time"`).
 - **🛠️ Custom Methods**: Create powerful multi-line scripts combining `adb` and local shell commands with automatic device targeting.
-- **🎯 Active Device Lock**: Lock onto a specific device serial to skip selection prompts.
+- **🎯 Active Device Lock**: Lock onto a specific device serial for the current session to skip selection prompts.
 - **🎨 Modern UI**: Beautifully formatted tables with status-based coloring and clear execution headers.
 
 ## 🚀 Installation
@@ -48,23 +48,32 @@ The `alias` command allows you to manage short commands and complex methods.
 
 | Command | Description |
 | :--- | :--- |
-| `sadb alias -l -s [mode]` | 列出并排序 (`a\|alpha`, `r\|reverse`, `l\|length`) |
-| `sadb alias -r <key>` | 删除指定的别名或方法 |
-| `sadb alias -h`, `--help` | 显示别名系统的详细帮助信息 |
-| `sadb alias <key> <value>` | 添加或更新一个别名 |
-| `sadb alias.<key> <value>` | 添加别名的快捷方式 |
-| `sadb alias <key>` | 查看特定别名的定义 |
+| `sadb alias -l -s [mode]` | List and sort aliases/methods (`a\|alpha`, `r\|reverse`, `l\|length`) |
+| `sadb alias -r <key>` | Remove a specific alias or method |
+| `sadb alias -h`, `--help` | Display detailed help for the alias command |
+| `sadb alias <key> <value>` | Add or update a command alias |
+| `sadb alias.<key> <value>` | Shorthand to add a command alias |
+| `sadb alias <key>` | Show the definition of a specific alias |
 
 ### 🎯 Active Device Control
 Set an active device for the **current terminal session only**. This avoids selection prompts without affecting other windows.
 
 | Command | Description |
 | :--- | :--- |
-| `sadb active <serial>` | 在当前会话中锁定指定设备 |
-| `sadb active -d` | 取消当前会话的锁定 |
+| `sadb active` | Trigger interactive selection (or auto-select if only one device is connected) |
+| `sadb active <serial>` | Lock the current session to a specific device serial |
+| `sadb active -d` | Unlock and return to interactive selection mode |
+| `sadb active -h` | Display detailed help for the active command |
+
+### 📱 Beautified Device List
+`sadb` provides a modern, color-coded table for listing devices. Active devices for the current session are highlighted in yellow.
+
+| Command | Description |
+| :--- | :--- |
+| `sadb devices` | List connected devices in a beautified table and highlight the active device |
 
 ### ⚙️ Standard ADB Passthrough
-Commands like `devices`, `start-server`, `kill-server`, `connect`, `pair`, `version`, etc., are passed directly to the original `adb` binary.
+Commands like `start-server`, `kill-server`, `connect`, `pair`, `version`, etc., are passed directly to the original `adb` binary.
 
 ## 💡 Usage Examples
 
@@ -74,6 +83,13 @@ If multiple devices are connected, simply run any adb command:
 sadb shell
 ```
 *If `fzf` is installed, you can search and select your device instantly.*
+
+### Active Device Management
+```shell
+sadb active          # Select a device to lock onto for this terminal session
+sadb devices         # See the list with the active device highlighted
+sadb active -d       # Unlock and return to interactive selection mode
+```
 
 ### Aliases
 ```shell

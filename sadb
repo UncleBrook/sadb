@@ -121,6 +121,13 @@ exec_adb() {
     export ANDROID_SERIAL="$sn"
 
     local cmd_key="${adb_args[0]}"
+    
+    # 如果命令是 active，则执行锁定逻辑而不是 adb 命令
+    if [[ "$cmd_key" == "active" ]]; then
+        set_active_device "$sn"
+        return
+    fi
+
     local method_body="${methods[$cmd_key]}"
     local alias_args="${alias[$cmd_key]}"
 
@@ -151,7 +158,8 @@ choose_device() {
     fi
 
     local total_line=$(( device_count - 2 ))
-    local tips="Multiple devices found. Please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a]${c_reset} for all: "
+    local tips="Multiple devices found. Please select ${c_green}[0 .. ${total_line}]${c_reset}: "
+    [[ "${adb_args[0]}" != "active" ]] && tips="Multiple devices found. Please select ${c_green}[0 .. ${total_line}]${c_reset} or ${c_green}[a]${c_reset} for all: "
     local input=""
     local print_list=false
 
@@ -199,7 +207,8 @@ choose_device() {
 # 参数 $1: "list" 表示仅列出(不进入选择逻辑)
 print_devices() {
     local list_only=$1
-    devices=$(command adb devices -l)
+    active_device_num=-1
+    [[ -z "$devices" ]] && devices=$(command adb devices -l)
     device_count=$(wc -l <<< "$devices")
     
     # 无设备连接
@@ -224,10 +233,15 @@ print_devices() {
     details=("$header")
     
     # 遍历 adb 输出的每一行设备信息
-    for line in $(seq 2 "$device_count"); do
-        num=$(( line - 2 ))
+    local current_line_num=1
+    while IFS= read -r line; do
+        ((current_line_num++))
+        [[ $current_line_num -le 2 ]] && continue # 跳过第一行 List of devices attached
+        [[ -z "$line" ]] && continue
+
+        num=$(( current_line_num - 3 ))
         nums[$num]=$num
-        parse_device "$(sed -n "${line}p" <<< "$devices")"
+        parse_device "$line"
         
         # 根据设备状态设置颜色
         local status_color="$c_green"
@@ -252,26 +266,40 @@ print_devices() {
                       "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
             details+=("${row}")
         fi
-    done
+    done <<< "$devices"
 
     # 交互模式下的额外选项
     if [[ -z "$list_only" ]]; then
-        if [ $active_device_num -eq -1 ]; then
-            details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s" "[ a ]" "All devices")")
+        # 如果是 active 命令，不显示 "All devices" 选项
+        if [[ "${adb_args[0]}" != "active" ]]; then
+            if [ $active_device_num -eq -1 ]; then
+                details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s" "[ a ]" "All devices")")
+            fi
+            nums+=(a A)
         fi
-        nums+=(a A)
     fi
 }
 
 # 解析 adb devices -l 的单行输出到关联数组
 parse_device() {
-    local device key value
-    IFS=" " read -ra device <<< "${1//\// }"
-    for ((i = 0; i < ${#device[@]}; i++)); do
-        IFS=':' read -r key value <<< "${device[i]}"
-        [[ $i -eq 0 ]] && { value="$key"; key="sn"; }
-        [[ $i -eq 1 ]] && { value="$key"; key="device_type"; }
-        dic_device["$key"]="$value"
+    local line="$1"
+    # 清空之前的状态
+    dic_device=()
+    
+    # 1. 提取序列号和状态 (前两个字段)
+    # 序列号可能包含冒号 (如 192.168.1.1:5555)
+    dic_device[sn]=$(echo "$line" | awk '{print $1}')
+    dic_device[device_type]=$(echo "$line" | awk '{print $2}')
+    
+    # 2. 提取其余属性 (product:xxx, model:xxx 等)
+    local rest=$(echo "$line" | cut -d' ' -f3-)
+    local key value
+    IFS=" " read -ra props <<< "$rest"
+    for prop in "${props[@]}"; do
+        if [[ "$prop" == *":"* ]]; then
+            IFS=':' read -r key value <<< "$prop"
+            dic_device["$key"]="$value"
+        fi
     done
 }
 
@@ -290,10 +318,24 @@ unset_active_device() {
     printf "Active device ${c_yellow}unset${c_reset} for this session\n"
 }
 
+usage() {
+    printf "${c_bold}sadb - Smart ADB Wrapper${c_reset}\n\n"
+    printf "${c_bold}用法:${c_reset} sadb [命令|别名] [参数...]\n\n"
+    printf "${c_bold}扩展命令:${c_reset}\n"
+    printf "  active [sn|-d|-h]    管理当前会话的活动设备 (Session-only)\n"
+    printf "  alias  [选项]         管理别名和自定义方法 (输入 'sadb alias -h' 查看详情)\n"
+    printf "  devices              显示美化的已连接设备列表\n\n"
+    printf "${c_bold}标准 ADB 命令:${c_reset}\n"
+    printf "  支持所有标准 adb 命令 (如 shell, logcat, install, push 等)\n"
+    printf "  当存在多台设备时，会自动触发交互式选择或使用已锁定的活动设备\n"
+}
+
 main() {
     adb_args=("$@")
     case "$1" in
-        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|help|keygen|reconnect|mdns|host-features|emu)
+        -h|--help|help)
+            usage ;;
+        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|keygen|reconnect|mdns|host-features|emu)
             command adb "${adb_args[@]}" ;;
         devices)
             # 使用美化的列表输出，并打印收集到的 details
@@ -327,7 +369,23 @@ main() {
         alias.*)
             [[ -z "$2" ]] && exit 1 || add_alias "${1#alias.}" "${@:2}" ;;
         active)
-            [[ "$2" == "-d" ]] && unset_active_device || set_active_device "$2" ;;
+            if [[ "$2" == "-d" ]]; then
+                unset_active_device
+            elif [[ "$2" == "-h" || "$2" == "--help" ]]; then
+                printf "${c_bold}用法:${c_reset} sadb active [序列号 | -d | -h]\n\n"
+                printf "  <无参数>      触发交互式列表选择 (或自动选择唯一设备)\n"
+                printf "  <序列号>      直接锁定指定的设备序列号\n"
+                printf "  -d           取消当前会话的设备锁定\n"
+                printf "  -h, --help   显示此帮助信息\n\n"
+                printf "注意: 锁定仅对当前终端会话有效，不会影响其他窗口。\n"
+            elif [[ -n "$2" ]]; then
+                set_active_device "$2"
+            else
+                # 不带参数时，触发列表选择或自动选择唯一设备
+                print_devices
+                choose_device
+            fi
+            ;;
         *)
             print_devices
             choose_device ;;
