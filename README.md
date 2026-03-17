@@ -37,7 +37,7 @@ curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
 #### For Bash
 1. **System-wide**:
    ```shell
-   sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/sadb
+   sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions
    ```
 2. **User-only**:
    Add this to your `~/.bashrc`:
