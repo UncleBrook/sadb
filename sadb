@@ -195,41 +195,75 @@ choose_device() {
     done
 }
 
+# 解析并列出设备信息
+# 参数 $1: "list" 表示仅列出(不进入选择逻辑)
 print_devices() {
+    local list_only=$1
     devices=$(command adb devices -l)
     device_count=$(wc -l <<< "$devices")
-    [[ "$device_count" -eq 1 ]] && { printf "${c_yellow}No devices attached${c_reset}\n\n"; exit 0; }
-    [[ "$device_count" -eq 2 ]] && { exec_adb; exit 0; }
+    
+    # 无设备连接
+    if [[ "$device_count" -eq 1 ]]; then
+        printf "${c_yellow}No devices attached${c_reset}\n\n"
+        exit 0
+    fi
 
-    local active=$(echo $ACTIVE_DEVICE)
+    # 自动执行逻辑：如果只有一台设备且不是单纯的 list 模式，则直接执行
+    if [[ -z "$list_only" && "$device_count" -eq 2 ]]; then
+        exec_adb
+        exit 0
+    fi
+
+    # 获取当前会话锁定的设备 (PPID 绑定)
+    local session_config="/tmp/sadb_active_${USER}_${PPID}"
+    local active="${ACTIVE_DEVICE}"
+    [[ -z "$active" && -f "$session_config" ]] && active=$(cat "$session_config")
+    
+    # 打印表头
     local header=$(printf "${c_bold}%-6s %-24s %-12s %-20s %-20s${c_reset}" "ID" "SERIAL" "STATUS" "MODEL" "PRODUCT")
     details=("$header")
     
+    # 遍历 adb 输出的每一行设备信息
     for line in $(seq 2 "$device_count"); do
         num=$(( line - 2 ))
         nums[$num]=$num
         parse_device "$(sed -n "${line}p" <<< "$devices")"
         
+        # 根据设备状态设置颜色
         local status_color="$c_green"
         [[ "${dic_device[device_type]}" == "offline" ]] && status_color="$c_error"
         [[ "${dic_device[device_type]}" == "unauthorized" ]] && status_color="$c_yellow"
 
+        local id_str="[ $num ]"
+        
+        # 处理活动设备逻辑
         if [ "$active" = "${dic_device[sn]}" ]; then
             active_device_num=$num
-            break
+            # 如果不是单纯列表模式，匹配到 active 即可跳出准备执行
+            [[ -z "$list_only" ]] && break
+            
+            # 列表模式下，高亮显示活动设备行（整行黄色加粗）
+            local row=$(printf "${c_bold}${c_yellow}%-6s %-24s %-12s %-20s %-20s${c_reset}" \
+                      "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
+            details+=("${row}")
         else
-            local id_str="[ $num ]"
-            details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s ${status_color}%-12s${c_reset} %-20s %-20s" \
-                      "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")")
+            # 普通设备行，使用列着色
+            local row=$(printf "${c_cyan}%-6s${c_reset} %-24s ${status_color}%-12s${c_reset} %-20s %-20s" \
+                      "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
+            details+=("${row}")
         fi
     done
 
-    if [ $active_device_num -eq -1 ]; then
-        details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s" "[ a ]" "All devices")")
+    # 交互模式下的额外选项
+    if [[ -z "$list_only" ]]; then
+        if [ $active_device_num -eq -1 ]; then
+            details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s" "[ a ]" "All devices")")
+        fi
+        nums+=(a A)
     fi
-    nums+=(a A)
 }
 
+# 解析 adb devices -l 的单行输出到关联数组
 parse_device() {
     local device key value
     IFS=" " read -ra device <<< "${1//\// }"
@@ -246,11 +280,14 @@ print_exec_time() {
 }
 
 set_active_device() {
-    printf "%s\n${c_green}%s\n" "Run:" "export ACTIVE_DEVICE=$1"
+    [[ -z "$1" ]] && { printf "${c_error}Error: Serial number required${c_reset}\n"; exit 1; }
+    echo "$1" > "/tmp/sadb_active_${USER}_${PPID}"
+    printf "Active device set to: ${c_green}%s${c_reset} (Session-only)\n" "$1"
 }
 
 unset_active_device() {
-    printf "%s\n${c_green}%s\n" "Run:" "unset ACTIVE_DEVICE"
+    rm -f "/tmp/sadb_active_${USER}_${PPID}"
+    printf "Active device ${c_yellow}unset${c_reset} for this session\n"
 }
 
 main() {
@@ -259,7 +296,11 @@ main() {
         -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|help|keygen|reconnect|mdns|host-features|emu)
             command adb "${adb_args[@]}" ;;
         devices)
-            [[ $# -eq 1 ]] && command adb "${adb_args[@]}" -l || command adb "${adb_args[@]}" ;;
+            # 使用美化的列表输出，并打印收集到的 details
+            print_devices "list"
+            for line in "${details[@]}"; do echo -e "$line" >&2; done
+            printf "\n" >&2
+            ;;
         alias)
             case "$2" in
                 -l|--list) 

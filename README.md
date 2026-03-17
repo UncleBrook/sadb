@@ -56,20 +56,15 @@ The `alias` command allows you to manage short commands and complex methods.
 | `sadb alias <key>` | 查看特定别名的定义 |
 
 ### 🎯 Active Device Control
-Lock your session to a specific device to avoid selection prompts.
+Set an active device for the **current terminal session only**. This avoids selection prompts without affecting other windows.
 
 | Command | Description |
 | :--- | :--- |
-| `sadb active <serial>` | 将指定设备设为当前活动设备 |
-| `sadb active -d` | 取消当前的活动设备锁定 |
-
-### 📱 Device Listing
-| Command | Description |
-| :--- | :--- |
-| `sadb devices` | 以美化表格的形式列出所有已连接的设备 |
+| `sadb active <serial>` | 在当前会话中锁定指定设备 |
+| `sadb active -d` | 取消当前会话的锁定 |
 
 ### ⚙️ Standard ADB Passthrough
-Commands like `start-server`, `kill-server`, `connect`, `pair`, `version`, etc., are passed directly to the original `adb` binary.
+Commands like `devices`, `start-server`, `kill-server`, `connect`, `pair`, `version`, etc., are passed directly to the original `adb` binary.
 
 ## 💡 Usage Examples
 
@@ -103,12 +98,6 @@ my_workflow() {
 }
 ```
 *`sadb` automatically injects `ANDROID_SERIAL`, so you don't need `-s` inside methods.*
-
-### Active Device
-```shell
-sadb active <serial_number>  # Set active device
-sadb active -d              # Unset
-```
 
 ## 📋 Requirements
 - **Bash v4.0+** (Required for associative arrays)
