@@ -20,10 +20,13 @@ _sadb_completion()
   device_selected=""
 
   # Find the real adb.
-  adb=$(which adb)
-  adb_paths=$(which -a adb)
+  adb=$(which adb 2>/dev/null)
+  adb_paths=$(which -a adb 2>/dev/null)
 
-  alias_cmds=$(awk -F '=' '{ print $1}' "${HOME}/.config/sadb/.alias" | tr '\n' ' ')
+  alias_cmds=""
+  if [[ -f "${HOME}/.config/sadb/.alias" ]]; then
+    alias_cmds=$(grep -v '^[[:space:]]*#' "${HOME}/.config/sadb/.alias" | sed -n -e 's/^[[:space:]]*\([a-zA-Z0-9_-]*\)[[:space:]]*=.*$/\1/p' -e 's/^[[:space:]]*\([a-zA-Z0-9_-]*\)[[:space:]]*().*$/\1/p' | xargs)
+  fi
 
   read -r line1 <<< "$adb_paths"
   if [[ "$line1" == *"adb: aliased to"* ]]; then
@@ -180,4 +183,7 @@ _sadb_completion()
       ;;
   esac
 }
+
 complete -o default -F _sadb_completion sadb
+# 尝试为 adb 也注册补全 (如果用户在 .bashrc 中设置了 alias adb=sadb，这会让补全生效)
+complete -o default -F _sadb_completion adb 2>/dev/null || true
