@@ -167,8 +167,15 @@ _sadb_completion()
       fi
       ;;
     alias)
-      if [ ${prev} == "alias" ]; then
-        COMPREPLY=( $(compgen -W "-l --list -r --remove -h --help" -o filenames -- ${cur}) )
+      if [ "${prev}" == "alias" ]; then
+        COMPREPLY=( $(compgen -W "-l --list -r --remove -h --help" -- ${cur}) )
+      fi
+      ;;
+    active)
+      if [ "${prev}" == "active" ]; then
+        # Suggest device serials, -d (disconnect/unset), and -h (help)
+        local devices=$($adb devices | awk '/(device|recovery|sideload)$/{print $1}')
+        COMPREPLY=( $(compgen -W "-d -h $devices" -- ${cur}) )
       fi
       ;;
   esac

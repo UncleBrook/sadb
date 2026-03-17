@@ -33,10 +33,23 @@ curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
    ```
 
 ### Shell Completion
-```shell
-# For Bash
-sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/sadb
-source /usr/share/bash-completion/completions/sadb
+
+#### For Bash
+1. **System-wide**:
+   ```shell
+   sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions/sadb
+   ```
+2. **User-only**:
+   Add this to your `~/.bashrc`:
+   ```shell
+   source /path/to/sadb-completion.bash
+   ```
+
+#### For Zsh
+Zsh can load bash completions using `bashcompinit`. Add the following to your `~/.zshrc`:
+```zsh
+autoload -Uz bashcompinit && bashcompinit
+source /path/to/sadb-completion.bash
 ```
 
 ## 📖 Commands Reference
@@ -121,7 +134,15 @@ my_workflow() {
 - **fzf** (Optional, for better interactive experience)
 
 ## 🎥 Demo
-[![Demo of the sadb script](https://i.ytimg.com/vi/GebidcL_W64/maxresdefault.jpg)](https://www.youtube.com/watch?v=GebidcL_W64 "Demo of the sadb script")
+
+### 📱 Smart Device Selection & Beautified List
+![devices demo](examples/devices.gif)
+
+### 🔗 Command Aliases & Methods
+![alias demo](examples/alias.gif)
+
+### ⚡ Interactive Usage & Execution
+![execute demo](examples/excute.gif)
 
 ## 📄 License
 This project is licensed under the [Apache License 2.0](LICENSE).
