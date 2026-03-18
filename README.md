@@ -16,40 +16,58 @@
 
 ## 🚀 Installation
 
-### Quick Install
+### Manual Installation
+
+#### 1. Install the Script
+Download the `sadb` script and set the execution permission:
+
 ```shell
-curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
+# For system-wide install (requires sudo):
+sudo curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb -o /usr/local/bin/sadb
+sudo chmod +x /usr/local/bin/sadb
+
+# For user-only install (ensure ~/.local/bin is in your PATH):
+mkdir -p ~/.local/bin
+curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb -o ~/.local/bin/sadb
+chmod +x ~/.local/bin/sadb
 ```
 
-### Manual Installation
+#### 2. Install Shell Completion
+Download the completion script and load it in your shell configuration:
+
+**For Bash:**
 1. Download the script:
    ```shell
-   curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb > /usr/local/bin/sadb
-   chmod +x /usr/local/bin/sadb
+   mkdir -p ~/.config/sadb
+   curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb-completion.bash -o ~/.config/sadb/sadb-completion.bash
    ```
-2. (Recommended) Add an alias to your `~/.bashrc` or `~/.zshrc`:
+2. Add the following to your `~/.bashrc`:
    ```shell
-   alias adb="sadb"
+   [[ -f ~/.config/sadb/sadb-completion.bash ]] && source ~/.config/sadb/sadb-completion.bash
    ```
 
-### Shell Completion
-
-#### For Bash
-1. **System-wide**:
+**For Zsh:**
+1. Download the script:
    ```shell
-   sudo cp ./sadb-completion.bash /usr/share/bash-completion/completions
+   mkdir -p ~/.config/sadb
+   curl -L https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb-completion.bash -o ~/.config/sadb/sadb-completion.bash
    ```
-2. **User-only**:
-   Add this to your `~/.bashrc`:
-   ```shell
-   source /path/to/sadb-completion.bash
+2. Add the following to your `~/.zshrc`:
+   ```zsh
+   autoload -Uz bashcompinit && bashcompinit
+   source ~/.config/sadb/sadb-completion.bash
    ```
 
-#### For Zsh
-Zsh can load bash completions using `bashcompinit`. Add the following to your `~/.zshrc`:
-```zsh
-autoload -Uz bashcompinit && bashcompinit
-source /path/to/sadb-completion.bash
+#### 3. Add Alias (Recommended)
+Add an alias to your shell configuration (`~/.bashrc` or `~/.zshrc`) to use `sadb` as a drop-in replacement for `adb`:
+```shell
+alias adb="sadb"
+```
+
+### Quick Install (Automated)
+If you prefer an automated setup, use the installation script which handles everything above for you:
+```shell
+curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
 ```
 
 ## 📖 Commands Reference
