@@ -6,12 +6,6 @@ CONFIG_URL="https://raw.githubusercontent.com/UncleBrook/sadb/main/.alias"
 COMPLETION_URL="https://raw.githubusercontent.com/UncleBrook/sadb/main/sadb-completion.bash"
 
 # Determine installation directory for the script
-# Priority:
-# 1. ~/.local/bin (If in PATH, avoid sudo)
-# 2. /usr/local/bin (If writable)
-# 3. /usr/bin (If writable)
-# 4. /usr/local/bin (Fallback, needs sudo)
-
 if [[ ":$PATH:" == *":$HOME/.local/bin:"* ]]; then
     INSTALL_DIR="$HOME/.local/bin"
     mkdir -p "$INSTALL_DIR"
@@ -46,7 +40,7 @@ $SUDO chmod +x "$INSTALL_DIR/sadb"
 echo "Downloading default config..."
 curl -L -s -o "$CONFIG_DIR/.alias" "$CONFIG_URL"
 
-# Determine completion directory
+# Determine completion directory (Ensuring consistency across Linux and macOS)
 COMPLETION_DIR=""
 if [[ "$OSTYPE" == "darwin"* ]]; then
     if command -v brew >/dev/null 2>&1; then
@@ -58,7 +52,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 if [ -z "$COMPLETION_DIR" ]; then
-    # Linux user-level bash completion
+    # User-level bash completion directory
     USER_COMPLETION_DIR="$HOME/.local/share/bash-completion/completions"
     mkdir -p "$USER_COMPLETION_DIR"
     if [ -w "$USER_COMPLETION_DIR" ]; then
@@ -68,11 +62,10 @@ if [ -z "$COMPLETION_DIR" ]; then
     fi
 fi
 
+# Always use the consistent filename: sadb-completion.bash
+COMPLETION_FILE="$COMPLETION_DIR/sadb-completion.bash"
+
 echo "Downloading completion script to $COMPLETION_DIR..."
-COMPLETION_FILE="$COMPLETION_DIR/sadb"
-if [[ "$COMPLETION_DIR" == "$CONFIG_DIR" ]]; then
-    COMPLETION_FILE="$COMPLETION_DIR/sadb-completion.bash"
-fi
 curl -L -s -o "$COMPLETION_FILE" "$COMPLETION_URL"
 
 echo "Initializing shell profiles..."
@@ -85,7 +78,7 @@ fi
 
 for FILE in "${CONFIG_FILES[@]}"; do
     if [ -f "$FILE" ]; then
-        # Add alias
+        # 1. Add alias
         if ! grep -q "adb='sadb'" "$FILE"; then
             echo "Adding alias to $FILE..."
             echo -e "\n# >>> sadb initialize >>>" >> "$FILE"
@@ -93,22 +86,15 @@ for FILE in "${CONFIG_FILES[@]}"; do
             echo "# <<< sadb initialize <<<" >> "$FILE"
         fi
         
-        # Add completion loading for Zsh and non-standard Bash paths
-        if [[ "$FILE" == *".zshrc" ]]; then
-            if ! grep -q "bashcompinit" "$FILE"; then
-                echo "Adding Zsh completion support to $FILE..."
-                echo -e "\n# >>> sadb completion >>>" >> "$FILE"
+        # 2. Add completion loading (Consistent across all environments)
+        if ! grep -q "sadb completion" "$FILE"; then
+            echo "Adding completion loading to $FILE..."
+            echo -e "\n# >>> sadb completion >>>" >> "$FILE"
+            if [[ "$FILE" == *".zshrc" ]]; then
                 echo "autoload -Uz bashcompinit && bashcompinit" >> "$FILE"
-                echo "source \"$COMPLETION_FILE\"" >> "$FILE"
-                echo "# <<< sadb completion <<<" >> "$FILE"
             fi
-        elif [[ "$COMPLETION_DIR" == "$CONFIG_DIR" ]]; then
-             if ! grep -q "sadb-completion.bash" "$FILE"; then
-                echo "Adding Bash completion loading to $FILE..."
-                echo -e "\n# >>> sadb completion >>>" >> "$FILE"
-                echo "[[ -f \"$COMPLETION_FILE\" ]] && source \"$COMPLETION_FILE\"" >> "$FILE"
-                echo "# <<< sadb completion <<<" >> "$FILE"
-            fi
+            echo "[[ -f \"$COMPLETION_FILE\" ]] && source \"$COMPLETION_FILE\"" >> "$FILE"
+            echo "# <<< sadb completion <<<" >> "$FILE"
         fi
     fi
 done
