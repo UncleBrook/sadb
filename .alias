@@ -1,9 +1,20 @@
+# pm
+features=shell pm list features
+clear=shell pm clear
+users=shell pm list users
+packages=shell pm list packages
+path=shell pm path
+kill=shell pkill 
+
+# App Management
+start-activity=shell am start
+start-service=shell am startservice
+foce-stop=shell am force-stop
+
+# Settings & Props
 setsecure=shell settings put secure
 getglobal=shell settings get global
-activity=shell dumpsys activity top | grep ACTIVITY
 setglobal=shell settings put global
-lunch=shell getprop ro.build.flavor
-getprop=shell getprop
 setglo=shell settings put global
 putsec=shell settings put secure
 getglo=shell settings get global
@@ -11,28 +22,71 @@ putsystem=shell settings put system
 setsystem=shell settings put system
 getsecure=shell settings get secure
 putsecure=shell settings put secure
-setprop=shell setprop
 putglo=shell settings put global
 putglobal=shell settings put global
 setsys=shell settings put system
 getsec=shell settings get secure
-model=shell getprop ro.product.model
 setsec=shell settings put secure
 getsys=shell settings get system
 putsys=shell settings put system
 getsystem=shell settings get system
+lunch=shell getprop ro.build.flavor
+getprop=shell getprop
+setprop=shell setprop
+debuglayout=shell setprop debug.layout
+model=shell getprop ro.product.model
+
+# UI & Display
+activity=shell dumpsys activity top | grep ACTIVITY
+activitys=shell dumpsys activity activities
+wd=shell wm density
+ws=shell wm size
+
+# service
+services=shell service list
+
+# others
+pidof=shell pidof -s
+
+# System Status
+cpu=shell top -n 1
+mem=shell dumpsys meminfo
+battery=shell dumpsys battery
+
+# Input & Media
+tap=shell input tap
+swipe=shell input swipe
+text=shell input text
+key=shell input keyevent
+screencap=shell screencap -p /sdcard/screen.png
 logcat=shell logcat -b all
-start-activity=shell am start
-start-service=shell am startservice
-force-stop=shell am force-stop
-display-size=shell am display-size
-display-density=shell am display-density
-packages=shell pm list packages
-features=shell pm list features
-users=shell pm list users
-package=shell pm path
-clear=shell pm clear
-enable-component=shell pm enable
-disable-component=shell pm disable
-screencap=shell screencap
+log-clear=shell logcat -c
 dumpsys=shell dumpsys
+
+clock_seconds=shell settings put secure clock_seconds
+
+animation() {
+    local scale=$1
+    adb shell settings put window_animation_scale $scale
+    adb shell settings put transition_animation_scale $scale
+    adbshell settings put animator_duration_scale $scale
+}
+
+layout-inspector() {
+    local enable=$1
+    if [ "$enable" = "true" ]; then
+        adb shell setprop persist.debug.dalvik.vm.jdwp.enabled 1
+    else
+        adb shell setprop persist.debug.dalvik.vm.jdwp.enabled 0
+    fi
+}
+
+screenoff() {
+    local timeout=$1
+    adb shell settings put system screen_off_timeout $timeout
+}
+
+focused() {
+    adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp"
+}
+

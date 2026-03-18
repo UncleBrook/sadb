@@ -37,8 +37,12 @@ echo "Downloading script..."
 $SUDO curl -L -s -o "$INSTALL_DIR/sadb" "$SCRIPT_URL"
 $SUDO chmod +x "$INSTALL_DIR/sadb"
 
-echo "Downloading default config..."
-curl -L -s -o "$CONFIG_DIR/.alias" "$CONFIG_URL"
+if [ ! -f "$CONFIG_DIR/.alias" ]; then
+    echo "Downloading default config..."
+    curl -L -s -o "$CONFIG_DIR/.alias" "$CONFIG_URL"
+else
+    echo "Config file already exists at $CONFIG_DIR/.alias, skipping download."
+fi
 
 # Determine completion directory (Ensuring consistency across Linux and macOS)
 COMPLETION_DIR=""
