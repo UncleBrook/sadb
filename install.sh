@@ -85,7 +85,7 @@ fi
 
 for FILE in "${CONFIG_FILES[@]}"; do
     if [ -f "$FILE" ]; then
-        Add alias
+        # Add alias
         if ! grep -q "adb='sadb'" "$FILE"; then
             echo "Adding alias to $FILE..."
             echo -e "\n# >>> sadb initialize >>>" >> "$FILE"
