@@ -51,6 +51,8 @@ pidof=shell pidof -s
 # System Status
 cpu=shell top -n 1
 mem=shell dumpsys meminfo
+cpuinfo=shell cat /proc/cpuinfo
+meminfo=shell cat /proc/meminfo
 battery=shell dumpsys battery
 
 # Input & Media
@@ -58,7 +60,6 @@ tap=shell input tap
 swipe=shell input swipe
 text=shell input text
 key=shell input keyevent
-screencap=shell screencap -p /sdcard/screen.png
 logcat=shell logcat -b all
 log-clear=shell logcat -c
 dumpsys=shell dumpsys
@@ -88,5 +89,17 @@ screenoff() {
 
 focused() {
     adb shell dumpsys window | grep -E "mCurrentFocus|mFocusedApp"
+}
+
+screencap() {
+    local time=$(date "+%Y%m%d_%H%M%S")
+    local output_path="~/Pictures/Screenshot_${time}.png"
+    
+    if adb exec-out screencap -p > "$output_path"; then
+        echo "✅ 截图成功: $output_path"
+    else
+        echo "❌ 截图失败"
+        rm -f "$output_path"
+    fi
 }
 
