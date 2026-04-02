@@ -53,6 +53,14 @@ read_alias() {
 add_alias() {
     local key="$1"
     local value="${*:2}"
+    
+    if [[ -v methods["$key"] ]]; then
+        printf "A method with the same name ${c_yellow}'$key'${c_reset} already exists.\n"
+        printf "A method always takes precedence over an alias. Continue? ${c_green}[y/n]${c_reset}:"
+        read -r answer
+        [[ "$answer" != [Yy]* ]] && exit 0
+    fi
+
     if [[ -v alias["$key"] ]]; then
         printf "The original alias is ${c_error}'$key=${alias[$key]}'${c_reset}, overwrite it? ${c_green}[y/n]${c_reset}:"
         read -r answer
@@ -64,11 +72,56 @@ add_alias() {
 }
 
 remove_alias() {
-    if [[ -v alias["$1"] ]]; then
-        sed_i "/^[[:space:]]*$1=/d" "${config}.alias"
+    local key="$1"
+    local has_alias=false
+    local has_method=false
+
+    [[ -v alias["$key"] ]] && has_alias=true
+    [[ -v methods["$key"] ]] && has_method=true
+
+    if $has_alias && $has_method; then
+        printf "Conflict: \"$key\" is both an ${c_cyan}Alias${c_reset} and a ${c_yellow}Method${c_reset}.\n"
+        printf "What would you like to remove?\n"
+        printf "  1) Both\n"
+        printf "  2) Only Alias\n"
+        printf "  3) Only Method\n"
+        printf "  n) Cancel\n"
+        printf "Selection [1-3, n]: "
+        read -r choice
+        case "$choice" in
+            1)
+                sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
+                sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+                ;;
+            2)
+                sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
+                ;;
+            3)
+                sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+        read_alias
+        return 0
+    fi
+
+    local found=false
+    if $has_alias; then
+        sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
+        found=true
+    fi
+
+    if $has_method; then
+        sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+        found=true
+    fi
+
+    if $found; then
         read_alias
     else
-        printf "Alias \"%s\" not found.\n" "$1"
+        printf "Alias or Method \"%s\" not found.\n" "$key"
         print_alias
     fi
 }
@@ -357,7 +410,7 @@ main() {
                     printf "${c_bold}用法:${c_reset} sadb alias [选项] [键] [值...]\n\n"
                     printf "${c_bold}选项:${c_reset}\n"
                     printf "  -l, --list [-s 模式]    列出所有别名和方法 (模式: a|alpha, r|reverse, l|length)\n"
-                    printf "  -r, --remove <键>       删除指定的别名\n"
+                    printf "  -r, --remove <键>       删除指定的别名或方法\n"
                     printf "  -h, --help              显示此帮助信息\n\n"
                     printf "${c_bold}命令:${c_reset}\n"
                     printf "  sadb alias <键> <值>    添加或更新别名 (例如: sadb alias c \"shell screencap\")\n"

@@ -1,0 +1,4 @@
+.vscode/
+examples/*.tape
+GEMINI.md
+test_install_logic.sh

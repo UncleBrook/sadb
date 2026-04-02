@@ -95,6 +95,53 @@ test_alias_write_ops() {
     [[ "$?" != "0" ]]
     assert_eq "$?" "0" "Alias removed from file"
 
+    # 4. 测试删除方法
+    cat > "${config}.alias" <<EOF
+test_method() {
+    echo "hello"
+}
+EOF
+    read_alias
+    assert_eq "${methods[test_method]}" $'    echo "hello"\n' "Method read before removal"
+    
+    remove_alias "test_method" > /dev/null
+    [[ -z "${methods[test_method]}" ]]
+    assert_eq "$?" "0" "Method removed from memory"
+    grep -q "test_method" "${config}.alias"
+    [[ "$?" != "0" ]]
+    assert_eq "$?" "0" "Method removed from file"
+
+    # 5. 测试重名冲突删除 (Alias vs Method)
+    cat > "${config}.alias" <<EOF
+test_key=alias_val
+test_key() {
+    echo "method_val"
+}
+EOF
+    read_alias
+    # 模拟选择 2 (只删除 Alias)
+    remove_alias "test_key" <<< "2" > /dev/null
+    read_alias
+    [[ -z "${alias[test_key]}" ]]
+    assert_eq "$?" "0" "Conflict: Alias removed by choice"
+    [[ -n "${methods[test_key]}" ]]
+    assert_eq "$?" "0" "Conflict: Method preserved"
+
+    # 模拟选择 3 (只删除 Method)
+    cat > "${config}.alias" <<EOF
+test_key=alias_val
+test_key() {
+    echo "method_val"
+}
+EOF
+    read_alias
+    remove_alias "test_key" <<< "3" > /dev/null
+    read_alias
+    [[ -n "${alias[test_key]}" ]]
+    assert_eq "$?" "0" "Conflict: Alias preserved"
+    [[ -z "${methods[test_key]}" ]]
+    assert_eq "$?" "0" "Conflict: Method removed by choice"
+
     rm -rf "$test_dir"
     config="$old_config"
 }
