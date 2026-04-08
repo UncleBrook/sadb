@@ -7,6 +7,7 @@
 c_green=$(tput setaf 2)
 c_error=$(tput setaf 1)
 c_cyan=$(tput setaf 6)
+c_gray=$(tput setaf 8 2>/dev/null || tput setaf 7)
 c_yellow=$(tput setaf 3)
 c_bold=$(tput bold)
 c_reset=$(tput sgr0)
@@ -167,12 +168,12 @@ print_alias() {
     local sorted_alias=($(sort_keys "${alias_keys[@]}"))
     local sorted_methods=($(sort_keys "${method_keys[@]}"))
 
-    printf "${c_bold}${c_cyan}--- Aliases ---${c_reset}\n"
+    printf "${c_gray}---${c_reset} ${c_cyan}Aliases${c_reset} ${c_gray}---${c_reset}\n"
     for key in "${sorted_alias[@]}"; do
         [[ -n "$key" ]] && printf "alias.${c_green}%-20s${c_reset} = %s\n" "$key" "${alias[$key]}"
     done
 
-    printf "\n${c_bold}${c_cyan}--- Methods ---${c_reset}\n"
+    printf "\n${c_gray}---${c_reset} ${c_cyan}Methods${c_reset} ${c_gray}---${c_reset}\n"
     for key in "${sorted_methods[@]}"; do
         [[ -n "$key" ]] && printf "method.${c_yellow}%s${c_reset}() {\n%s}\n\n" "$key" "${methods[$key]}"
     done
@@ -204,24 +205,24 @@ exec_adb() {
 
     # 在每个设备的标题前打印虚线分隔线
     [[ "$FIRST_EXEC" == "false" ]] && printf "\n" >&2
-    printf "${c_cyan}- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -${c_reset}\n" >&2
+    printf "${c_gray}--------------------------------------------------------------------------------${c_reset}\n" >&2
     FIRST_EXEC=false
 
     if [[ -n "$method_body" ]]; then
-        printf "${c_cyan}${c_bold}>>> Method: ${c_yellow}%s${c_reset}${c_cyan} on ${c_green}%s${c_reset}\n\n" "$cmd_key" "$sn" >&2
+        printf "${c_gray}>>> Method: %s on %s${c_reset}\n\n" "$cmd_key" "$sn" >&2
         (
             set -- "${adb_args[@]:1}"
             adb() {
-                printf "\n${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
+                printf "\n${c_gray}>>> Command: adb -s %s %s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
                 command adb "$@"
             }
             eval "$method_body"
         )
     elif [[ -n "$alias_args" ]]; then
-        printf "${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s %s${c_reset}\n\n" "$sn" "${alias_args}" "${adb_args[*]:1}" >&2
+        printf "${c_gray}>>> Command: adb -s %s %s %s${c_reset}\n\n" "$sn" "${alias_args}" "${adb_args[*]:1}" >&2
         command adb -s "$sn" ${alias_args} "${adb_args[@]:1}"
     else
-        printf "${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s${c_reset}\n\n" "$sn" "${adb_args[*]}" >&2
+        printf "${c_gray}>>> Command: adb -s %s %s${c_reset}\n\n" "$sn" "${adb_args[*]}" >&2
         command adb -s "$sn" "${adb_args[@]}"
     fi
 }
@@ -378,7 +379,7 @@ parse_device() {
 }
 
 print_exec_time() {
-    printf "${c_cyan}[ $(date "+%Y-%m-%d %A %H:%M:%S") ]${c_reset}\n\n" >&2
+    printf "${c_gray}[ $(date "+%Y-%m-%d %H:%M:%S") ]${c_reset}\n\n" >&2
 }
 
 set_active_device() {
