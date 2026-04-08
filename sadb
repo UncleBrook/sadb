@@ -19,6 +19,7 @@ declare -A alias
 declare -A methods
 nums=()
 active_device_num=-1
+FIRST_EXEC=true
 
 [[ ! -e "${config}.alias" ]] && touch "${config}.alias"
 
@@ -42,10 +43,18 @@ read_alias() {
         elif [[ "$line" == *"="* ]]; then
             local key="${line%%=*}"
             local value="${line#*=}"
-            # Trim whitespace from both key and value
-            key=$(echo "$key" | xargs)
-            value=$(echo "$value" | xargs)
-            alias["$key"]="$value"
+            
+            # Use native Bash trimming to avoid glob expansion and subshells
+            key="${key#"${key%%[![:space:]]*}"}"
+            key="${key%"${key##*[![:space:]]}"}"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            
+            # Validate key: must not be empty and must be a valid shell identifier
+            # Although associative arrays support most characters, it's safer to avoid weird ones
+            if [[ -n "$key" ]]; then
+                alias["$key"]="$value"
+            fi
         fi
     done < "${config}.alias"
 }
@@ -54,6 +63,12 @@ add_alias() {
     local key="$1"
     local value="${*:2}"
     
+    # Validate key: only allow alphanumeric, underscore, hyphen, and dot
+    if [[ ! "$key" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        printf "${c_error}Error: Invalid alias name '$key'. Only alphanumeric, '.', '_' and '-' are allowed.${c_reset}\n"
+        exit 1
+    fi
+
     if [[ -v methods["$key"] ]]; then
         printf "A method with the same name ${c_yellow}'$key'${c_reset} already exists.\n"
         printf "A method always takes precedence over an alias. Continue? ${c_green}[y/n]${c_reset}:"
@@ -79,8 +94,11 @@ remove_alias() {
     [[ -v alias["$key"] ]] && has_alias=true
     [[ -v methods["$key"] ]] && has_method=true
 
+    # Escape key for sed pattern
+    local escaped_key=$(echo "$key" | sed 's/[^^]/[&]/g; s/\^/\\^/g')
+
     if $has_alias && $has_method; then
-        printf "Conflict: \"$key\" is both an ${c_cyan}Alias${c_reset} and a ${c_yellow}Method${c_reset}.\n"
+        printf "Conflict: \"%s\" is both an ${c_cyan}Alias${c_reset} and a ${c_yellow}Method${c_reset}.\n" "$key"
         printf "What would you like to remove?\n"
         printf "  1) Both\n"
         printf "  2) Only Alias\n"
@@ -90,14 +108,14 @@ remove_alias() {
         read -r choice
         case "$choice" in
             1)
-                sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
-                sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+                sed_i "/^[[:space:]]*$escaped_key=/d" "${config}.alias"
+                sed_i "/^[[:space:]]*$escaped_key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
                 ;;
             2)
-                sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
+                sed_i "/^[[:space:]]*$escaped_key=/d" "${config}.alias"
                 ;;
             3)
-                sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+                sed_i "/^[[:space:]]*$escaped_key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
                 ;;
             *)
                 return 0
@@ -109,12 +127,12 @@ remove_alias() {
 
     local found=false
     if $has_alias; then
-        sed_i "/^[[:space:]]*$key=/d" "${config}.alias"
+        sed_i "/^[[:space:]]*$escaped_key=/d" "${config}.alias"
         found=true
     fi
 
     if $has_method; then
-        sed_i "/^[[:space:]]*$key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
+        sed_i "/^[[:space:]]*$escaped_key[[:space:]]*()[[:space:]]*{/,/^[[:space:]]*}/d" "${config}.alias"
         found=true
     fi
 
@@ -184,8 +202,13 @@ exec_adb() {
     local method_body="${methods[$cmd_key]}"
     local alias_args="${alias[$cmd_key]}"
 
+    # 在每个设备的标题前打印虚线分隔线
+    [[ "$FIRST_EXEC" == "false" ]] && printf "\n" >&2
+    printf "${c_cyan}- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -${c_reset}\n" >&2
+    FIRST_EXEC=false
+
     if [[ -n "$method_body" ]]; then
-        printf "${c_cyan}${c_bold}>>> Method: ${c_yellow}%s${c_reset}${c_cyan} on ${c_green}%s${c_reset}\n" "$cmd_key" "$sn" >&2
+        printf "${c_cyan}${c_bold}>>> Method: ${c_yellow}%s${c_reset}${c_cyan} on ${c_green}%s${c_reset}\n\n" "$cmd_key" "$sn" >&2
         (
             set -- "${adb_args[@]:1}"
             adb() {
@@ -201,7 +224,6 @@ exec_adb() {
         printf "${c_cyan}${c_bold}>>> Command: ${c_green}adb -s %s ${c_yellow}%s${c_reset}\n\n" "$sn" "${adb_args[*]}" >&2
         command adb -s "$sn" "${adb_args[@]}"
     fi
-    printf "\n" >&2
 }
 
 choose_device() {
@@ -219,7 +241,7 @@ choose_device() {
     # 1. 默认使用 fzf (如果已安装)
     if command -v fzf >/dev/null 2>&1; then
         local choice
-        choice=$(printf "%b\n" "${details[@]:1}" | fzf --header="${details[0]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
+        choice=$(printf "%s\n" "${details[@]:1}" | fzf --header="${details[0]}" --ansi --prompt="📱 Select device: " --height=40% --layout=reverse --border)
         if [[ -n "$choice" ]]; then
             if [[ "$choice" == *"[ a ]"* ]]; then
                 for s in "${nums[@]}"; do [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"; done
@@ -243,7 +265,6 @@ choose_device() {
     while :; do
         [[ -z "$input" ]] && read -r input
         if [[ " ${nums[*]} " == *" ${input} "* ]]; then
-            printf "\n" >&2
             if [[ "$input" == [aA] ]]; then
                 for s in "${nums[@]}"; do [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"; done
             else
@@ -282,7 +303,7 @@ print_devices() {
     [[ -z "$active" && -f "$session_config" ]] && active=$(cat "$session_config")
     
     # 打印表头
-    local header=$(printf "${c_bold}%-6s %-24s %-12s %-20s %-20s${c_reset}" "ID" "SERIAL" "STATUS" "MODEL" "PRODUCT")
+    local header=$(printf "${c_bold}%-8s %-28s %-15s %-25s %s${c_reset}" "ID" "SERIAL" "STATUS" "MODEL" "PRODUCT")
     details=("$header")
     
     # 遍历 adb 输出的每一行设备信息
@@ -310,12 +331,12 @@ print_devices() {
             [[ -z "$list_only" ]] && break
             
             # 列表模式下，高亮显示活动设备行（整行黄色加粗）
-            local row=$(printf "${c_bold}${c_yellow}%-6s %-24s %-12s %-20s %-20s${c_reset}" \
+            local row=$(printf "${c_bold}${c_yellow}%-8s %-28s %-15s %-25s %s${c_reset}" \
                       "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
             details+=("${row}")
         else
             # 普通设备行，使用列着色
-            local row=$(printf "${c_cyan}%-6s${c_reset} %-24s ${status_color}%-12s${c_reset} %-20s %-20s" \
+            local row=$(printf "${c_cyan}%-8s${c_reset} %-28s ${status_color}%-15s${c_reset} %-25s %s" \
                       "$id_str" "${dic_device[sn]}" "${dic_device[device_type]}" "${dic_device[model]}" "${dic_device[product]}")
             details+=("${row}")
         fi
@@ -326,7 +347,7 @@ print_devices() {
         # 如果是 active 命令，不显示 "All devices" 选项
         if [[ "${adb_args[0]}" != "active" ]]; then
             if [ $active_device_num -eq -1 ]; then
-                details+=("$(printf "${c_cyan}%-6s${c_reset} %-24s" "[ a ]" "All devices")")
+                details+=("$(printf "${c_cyan}%-8s${c_reset} %-28s" "[ a ]" "All devices")")
             fi
             nums+=(a A)
         fi
@@ -394,7 +415,7 @@ main() {
             # 使用美化的列表输出，并打印收集到的 details
             print_devices "list"
             for line in "${details[@]}"; do echo -e "$line" >&2; done
-            printf "\n" >&2
+            # printf "\n" >&2
             ;;
         alias)
             case "$2" in
