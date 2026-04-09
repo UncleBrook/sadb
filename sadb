@@ -248,7 +248,7 @@ choose_device() {
                 for s in "${nums[@]}"; do [[ "$s" =~ [0-9]+ ]] && exec_adb "$s"; done
                 exit 0
             else
-                local num=$(echo "$choice" | grep -oP "\[ \K[0-9]+(?= \])")
+                local num=$(echo "$choice" | sed -n 's/.*\[ \([0-9]\{1,\}\) \].*/\1/p')
                 [[ -n "$num" ]] && { exec_adb "$num"; exit 0; }
             fi
         else

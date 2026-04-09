@@ -49,7 +49,7 @@ services=shell service list
 pidof=shell pidof -s
 
 # System Status
-cpu=shell top -n 1
+cpu=shell top -b -n 1
 mem=shell dumpsys meminfo
 cpuinfo=shell cat /proc/cpuinfo
 meminfo=shell cat /proc/meminfo
