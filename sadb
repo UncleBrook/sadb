@@ -188,8 +188,9 @@ exec_adb() {
     local device=$(sed -n "${num}p" <<< "$devices")
     [[ -z "$device" ]] && return
     
-    IFS=" " read -ra args <<< "${device//\// }"
-    local sn="${args[0]}"
+    parse_device "$device"
+    local sn="${dic_device[sn]}"
+    local model="${dic_device[model]:-$sn}"
     export ANDROID_SERIAL="$sn"
 
     local cmd_key="${adb_args[0]}"
@@ -203,26 +204,26 @@ exec_adb() {
     local method_body="${methods[$cmd_key]}"
     local alias_args="${alias[$cmd_key]}"
 
-    # 在每个设备的标题前打印虚线分隔线
+    # 在每个设备的标题前打印标题
     [[ "$FIRST_EXEC" == "false" ]] && printf "\n" >&2
-    printf "${c_gray}--------------------------------------------------------------------------------${c_reset}\n" >&2
+    printf "${c_gray}--- %s (%s) ---${c_reset}\n" "$sn" "$model" >&2
     FIRST_EXEC=false
 
     if [[ -n "$method_body" ]]; then
-        printf "${c_gray}>>> Method: %s on %s${c_reset}\n\n" "$cmd_key" "$sn" >&2
+        printf "${c_gray}> Method: %s${c_reset}\n" "$cmd_key" >&2
         (
             set -- "${adb_args[@]:1}"
             adb() {
-                printf "\n${c_gray}>>> Command: adb -s %s %s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
+                printf "\n${c_gray}> Command: adb %s${c_reset}\n\n" "$*" >&2
                 command adb "$@"
             }
             eval "$method_body"
         )
     elif [[ -n "$alias_args" ]]; then
-        printf "${c_gray}>>> Command: adb -s %s %s %s${c_reset}\n\n" "$sn" "${alias_args}" "${adb_args[*]:1}" >&2
+        printf "${c_gray}> Command: adb %s %s${c_reset}\n\n" "${alias_args}" "${adb_args[*]:1}" >&2
         command adb -s "$sn" ${alias_args} "${adb_args[@]:1}"
     else
-        printf "${c_gray}>>> Command: adb -s %s %s${c_reset}\n\n" "$sn" "${adb_args[*]}" >&2
+        printf "${c_gray}> Command: adb %s${c_reset}\n\n" "${adb_args[*]}" >&2
         command adb -s "$sn" "${adb_args[@]}"
     fi
 }

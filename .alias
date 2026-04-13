@@ -68,9 +68,9 @@ clock_seconds=shell settings put secure clock_seconds
 
 animation() {
     local scale=$1
-    adb shell settings put window_animation_scale $scale
-    adb shell settings put transition_animation_scale $scale
-    adbshell settings put animator_duration_scale $scale
+    adb shell settings put global window_animation_scale $scale
+    adb shell settings put global transition_animation_scale $scale
+    adb shell settings put global animator_duration_scale $scale
 }
 
 layout-inspector() {
