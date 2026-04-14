@@ -411,7 +411,7 @@ main() {
     case "$1" in
         -h|--help|help)
             usage ;;
-        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|keygen|reconnect|mdns|host-features|emu)
+        -s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|--version|server-status|track-devices|keygen|reconnect|mdns|host-features|emu)
             command adb "${adb_args[@]}" ;;
         devices)
             # 使用美化的列表输出，并打印收集到的 details
