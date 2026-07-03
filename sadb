@@ -272,6 +272,11 @@ choose_device() {
                 printf "\n" >&2
                 exit 0
             fi
+            # q/Q to quit
+            if [[ "$first" == "q" || "$first" == "Q" ]]; then
+                printf "q\n" >&2
+                exit 0
+            fi
             # Empty input (Enter pressed alone) — reprompt
             if [[ "$first" == $'\n' || -z "$first" ]]; then
                 printf "\n" >&2
