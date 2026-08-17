@@ -70,6 +70,59 @@ If you prefer an automated setup, use the installation script which handles ever
 curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
 ```
 
+## 🪟 Windows (WSL) Usage
+
+`sadb` has been **verified to work on WSL (Windows Subsystem for Linux)** with the **Windows `adb.exe`** — you don't need a separate Linux build of `adb` inside WSL.
+
+### Prerequisites
+- Windows 10/11 with WSL installed (WSL 1 or WSL 2)
+- Windows Platform Tools (contains `adb.exe`)
+
+### Setup
+
+#### 1. Get Windows `adb`
+Download [Platform Tools for Windows](https://developer.android.com/studio/releases/platform-tools) and extract it to a folder such as `C:\platform-tools`.
+
+#### 2. Add `adb.exe` to the WSL `PATH`
+Add the following line to `~/.bashrc` or `~/.zshrc` **inside WSL**:
+
+```bash
+export PATH="$PATH:/mnt/c/platform-tools"
+```
+
+> Adjust `/mnt/c/platform-tools` to match the actual location where you extracted Platform Tools (e.g. `/mnt/d/tools/platform-tools`).
+
+Then reload your shell:
+
+```bash
+source ~/.bashrc    # or: source ~/.zshrc
+```
+
+#### 3. Install sadb
+Install `sadb` inside WSL using any Linux method above:
+
+```bash
+curl -s https://raw.githubusercontent.com/UncleBrook/sadb/main/install.sh | bash
+```
+
+#### 4. Verify
+```bash
+which adb       # should point to /mnt/c/platform-tools/adb.exe
+sadb devices    # lists the devices connected through Windows
+```
+
+### How It Works
+- `sadb` invokes the Windows `adb.exe`, which talks to the **adb server running on Windows**, so USB devices are managed by Windows — no extra setup (`usbipd`, etc.) is needed inside WSL.
+- `sadb` automatically strips the Windows CRLF line endings from `adb.exe` output, so device lists and serial numbers are always parsed correctly.
+
+### Tips
+- Keep WSL and Windows on the same Platform Tools version.
+- If the adb server is not running yet, run `sadb start-server` once to launch the Windows adb server.
+- Instead of editing `PATH`, you can symlink `adb.exe` into your Linux `PATH`:
+  ```bash
+  sudo ln -s /mnt/c/platform-tools/adb.exe /usr/local/bin/adb
+  ```
+
 ## 📖 Commands Reference
 
 `sadb` supports all standard `adb` commands and adds several powerful management features.
@@ -150,6 +203,7 @@ my_workflow() {
 - **Bash v4.0+** (Required for associative arrays)
 - **adb** (Android SDK Platform-Tools)
 - **fzf** (Optional, for better interactive experience)
+- **WSL + `adb.exe`** (Optional, on Windows — see [Windows (WSL) Usage](#-windows-wsl-usage))
 
 ## 🎥 Demo
 

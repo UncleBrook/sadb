@@ -308,7 +308,7 @@ choose_device() {
 print_devices() {
     local list_only=$1
     active_device_num=-1
-    [[ -z "$devices" ]] && devices=$(command adb devices -l)
+    [[ -z "$devices" ]] && devices=$(command adb devices -l | tr -d '\r')
     device_count=$(wc -l <<< "$devices")
     
     # 无设备连接
