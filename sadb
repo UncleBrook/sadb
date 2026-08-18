@@ -216,8 +216,8 @@ exec_adb() {
         (
             set -- "${adb_args[@]:1}"
             adb() {
-                printf "\n${c_gray}> Command: adb %s${c_reset}\n\n" "$*" >&2
-                command adb "$@"
+                printf "\n${c_gray}> Command: adb -s %s %s${c_reset}\n\n" "$ANDROID_SERIAL" "$*" >&2
+                command adb -s "$ANDROID_SERIAL" "$@"
             }
             eval "$method_body"
         )
