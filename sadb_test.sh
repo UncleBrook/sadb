@@ -191,6 +191,154 @@ test_sort_logic() {
     assert_eq "$length_sorted" "cat apple zebra" "Length sort keys"
 }
 
+run_selector_command() (
+    local mock_devices="${SADB_TEST_DEVICES-$'List of devices attached\nDEMO_SERIAL_0 device model:demo_phone product:demo\nDEMO_SERIAL_1 device model:demo_tablet product:demo'}"
+    local devices="$mock_devices"
+    local ACTIVE_DEVICE="DEMO_SERIAL_0"
+    local active_device_num=-1
+    local FIRST_EXEC=true
+    local c_gray=""
+    local -A alias=([demo_alias]="shell echo")
+    local -A methods=([demo_method]='adb shell echo "$@"')
+
+    command() {
+        if [[ "$1" == "adb" ]]; then
+            shift
+            if [[ "$1" == "devices" && "$2" == "-l" ]]; then
+                printf '%s\n' "$mock_devices"
+            else
+                printf '<%s>' "$@"
+                printf '\n'
+                return "${SADB_TEST_ADB_RESULT:-0}"
+            fi
+        else
+            builtin command "$@"
+        fi
+    }
+
+    choose_device() {
+        if [[ "$active_device_num" -ne -1 ]]; then
+            exec_adb "$active_device_num"
+        else
+            printf 'INTERACTIVE_SELECTION\n'
+        fi
+    }
+
+    set_active_device() {
+        printf 'ACTIVE<%s>\n' "$1"
+    }
+
+    main "$@"
+)
+
+test_trailing_device_selector() {
+    echo ">>> Case 5: Testing Trailing Device Selection..."
+    local output result
+
+    output=$(run_selector_command shell echo "hello world" -0 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><echo><hello world>' "Trailing -0 selects the first device and preserves argument boundaries"
+
+    output=$(run_selector_command shell echo demo -1 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><echo><demo>' "Trailing -1 overrides the active device"
+
+    output=$(run_selector_command shell ls -a 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><ls><-a>' "Trailing native -a is preserved and uses the active device"
+
+    output=$(run_selector_command demo_alias "hello world" -1 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><echo><hello world>' "Aliases support trailing selectors"
+
+    output=$(run_selector_command demo_method "hello world" -1 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><echo><hello world>' "Methods receive arguments without the trailing selector"
+
+    output=$(run_selector_command demo_alias -a 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><echo><-a>' "Aliases retain a trailing -a argument"
+
+    output=$(run_selector_command demo_method -a 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><echo><-a>' "Methods receive a trailing -a argument unchanged"
+
+    output=$(run_selector_command shell id -2 2>/dev/null)
+    result=$?
+    assert_eq "$result" "1" "An unavailable device index fails"
+    assert_eq "$output" "" "An unavailable device index never executes adb"
+
+    output=$(run_selector_command shell echo -1 demo 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><echo><-1><demo>' "Non-final selector-like arguments are not consumed"
+
+    output=$(run_selector_command -s DEMO_SERIAL_1 shell ls -a 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><ls><-a>' "Native serial selection preserves trailing -a"
+
+    output=$(run_selector_command -a start-server 2>/dev/null)
+    assert_eq "$output" '<-a><start-server>' "Native leading -a is passed through unchanged"
+
+    output=$(run_selector_command -H localhost -P 5038 devices -l 2>/dev/null)
+    assert_eq "$output" '<-H><localhost><-P><5038><devices><-l>' "Native global options are passed through unchanged"
+
+    output=$(run_selector_command -- shell ls -a 2>/dev/null)
+    assert_eq "$output" '<shell><ls><-a>' "Explicit passthrough preserves native trailing options"
+
+    output=$(run_selector_command connect localhost:5555 -a 2>/dev/null)
+    assert_eq "$output" '<connect><localhost:5555><-a>' "Host commands are not rewritten"
+
+    output=$(run_selector_command shell ls -a -1 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><ls><-a>' "A native -a before the selector is preserved"
+
+    output=$(run_selector_command shell id -01 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_1><shell><id>' "Device indexes with leading zeros are handled as decimal"
+
+    output=$(run_selector_command shell id -99999999999999999999999999999 2>/dev/null)
+    result=$?
+    assert_eq "$result" "1" "Oversized indexes fail without arithmetic overflow"
+    assert_eq "$output" "" "Oversized indexes do not execute adb"
+
+    output=$(run_selector_command active -1 2>/dev/null)
+    assert_eq "$output" 'ACTIVE<DEMO_SERIAL_1>' "Active supports selecting a device by index"
+
+    output=$(run_selector_command active -a 2>/dev/null)
+    result=$?
+    assert_eq "$result" "1" "Active rejects selecting all devices"
+    assert_eq "$output" "" "Active never stores -a as a device serial"
+
+    local SADB_TEST_DEVICES=$'List of devices attached\nDEMO_SERIAL_0 device model:demo_phone product:demo'
+    output=$(run_selector_command shell id -0 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><id>' "Single-device execution removes the selector"
+
+    output=$(run_selector_command shell id -a 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_0><shell><id><-a>' "Single-device execution preserves trailing native -a"
+
+    output=$(run_selector_command shell id -1 2>/dev/null)
+    result=$?
+    assert_eq "$result" "1" "Single-device auto-selection cannot hide an invalid index"
+    assert_eq "$output" "" "An invalid single-device index never executes adb"
+
+    SADB_TEST_DEVICES='List of devices attached'
+    output=$(run_selector_command shell id -0 2>/dev/null)
+    result=$?
+    assert_eq "$result" "1" "Explicit selection fails when no devices are connected"
+    assert_eq "$output" "" "Empty device lists never execute adb"
+
+    SADB_TEST_DEVICES='List of devices attached'
+    local device_index
+    for ((device_index = 0; device_index <= 10; device_index++)); do
+        SADB_TEST_DEVICES+=$'\n'"DEMO_SERIAL_${device_index} device model:demo product:demo"
+    done
+    output=$(run_selector_command shell id -10 2>/dev/null)
+    assert_eq "$output" '<-s><DEMO_SERIAL_10><shell><id>' "Multi-digit device indexes are supported"
+
+    local SADB_TEST_ADB_RESULT=7
+    output=$(run_selector_command shell id -0 2>/dev/null)
+    result=$?
+    assert_eq "$result" "7" "Selected-device execution preserves adb failures"
+
+    local header_output
+    header_output=$(ACTIVE_DEVICE="DEMO_SERIAL_0" print_exec_time shell id 2>&1)
+    [[ "$header_output" == *"🔒 Active: DEMO_SERIAL_0"* ]]
+    assert_eq "$?" "0" "print_exec_time shows active device when no trailing selector is used"
+
+    header_output=$(ACTIVE_DEVICE="DEMO_SERIAL_0" print_exec_time shell id -1 2>&1)
+    [[ "$header_output" != *"🔒 Active:"* ]]
+    assert_eq "$?" "0" "print_exec_time suppresses active banner when trailing selector is used"
+}
+
 # --- 运行所有测试 ---
 echo "------------------------------------------------"
 echo "Running sadb Integrated Tests"
@@ -201,6 +349,7 @@ test_alias_method_read
 test_alias_write_ops
 test_session_active
 test_sort_logic
+test_trailing_device_selector
 
 echo "------------------------------------------------"
 if [ $FAILED -eq 0 ]; then

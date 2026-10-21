@@ -230,6 +230,32 @@ exec_adb() {
     fi
 }
 
+exec_selected_devices() {
+    local selector="$1"
+    selector="${selector#"${selector%%[!0]*}"}"
+    selector="${selector:-0}"
+
+    devices=$(command adb devices -l | tr -d '\r')
+    device_count=$(wc -l <<< "$devices")
+    active_device_num=-1
+
+    if [[ "$device_count" -le 1 ]]; then
+        printf "${c_yellow}No devices attached${c_reset}\n\n" >&2
+        return 1
+    fi
+
+    local device_index
+    for ((device_index = 0; device_index < device_count - 1; device_index++)); do
+        if [[ "$selector" == "$device_index" ]]; then
+            exec_adb "$device_index"
+            return
+        fi
+    done
+
+    printf "${c_error}Error: Device index '%s' not found. Run 'sadb devices' to list device IDs.${c_reset}\n" "$selector" >&2
+    return 1
+}
+
 choose_device() {
     if [ $active_device_num -ne -1 ]; then
         exec_adb "$active_device_num"
@@ -405,6 +431,11 @@ parse_device() {
 
 print_exec_time() {
     printf "${c_gray}[ $(date "+%Y-%m-%d %H:%M:%S") ]${c_reset}\n" >&2
+    # 当末尾显式指定设备编号时，不展示会话级 Active 提示以免混淆
+    if [[ $# -gt 1 && "${!#}" =~ ^-[0-9]+$ ]]; then
+        printf "\n" >&2
+        return
+    fi
     # 提示当前会话锁定的活动设备（若存在）
     local session_config="/tmp/sadb_active_${USER}_${PPID}"
     local active="${ACTIVE_DEVICE}"
@@ -429,14 +460,17 @@ unset_active_device() {
 
 usage() {
     printf "${c_bold}sadb - Smart ADB Wrapper${c_reset}\n\n"
-    printf "${c_bold}用法:${c_reset} sadb [命令|别名] [参数...]\n\n"
+    printf "${c_bold}用法:${c_reset} sadb [命令|别名] [参数...] [-编号]\n\n"
     printf "${c_bold}扩展命令:${c_reset}\n"
-    printf "  active [sn|-d|-h]    管理当前会话的活动设备 (Session-only)\n"
-    printf "  alias  [选项]         管理别名和自定义方法 (输入 'sadb alias -h' 查看详情)\n"
-    printf "  devices              显示美化的已连接设备列表\n\n"
+    printf "  active [sn|-<编号>|-d|-h] 管理当前会话的活动设备 (Session-only)\n"
+    printf "  alias  [选项]             管理别名和自定义方法 (输入 'sadb alias -h' 查看详情)\n"
+    printf "  devices                  显示美化的已连接设备列表\n\n"
     printf "${c_bold}标准 ADB 命令:${c_reset}\n"
     printf "  支持所有标准 adb 命令 (如 shell, logcat, install, push 等)\n"
     printf "  当存在多台设备时，会自动触发交互式选择或使用已锁定的活动设备\n"
+    printf "  命令末尾添加 -0、-1 等选择设备编号，优先于 active 锁定\n"
+    printf "  原生全局选项开头的调用保持透传；sadb -- <adb 参数...> 可完全透传\n"
+    printf "  -a 等非数字参数保持原义，例如 sadb shell ls -a -0\n"
 }
 
 main() {
@@ -444,7 +478,9 @@ main() {
     case "$1" in
         -h|--help|help)
             usage ;;
-        ""|-s|-p|-e|-d|start-server|kill-server|disconnect|connect|pair|version|--version|server-status|track-devices|keygen|reconnect|mdns|host-features|emu)
+        --)
+            command adb "${@:2}" ;;
+        ""|-*|start-server|kill-server|disconnect|connect|pair|version|server-status|track-devices|keygen|reconnect|mdns|host-features|emu)
             command adb "${adb_args[@]}" ;;
         devices)
             # 使用美化的列表输出，并打印收集到的 details
@@ -478,12 +514,18 @@ main() {
         alias.*)
             [[ -z "$2" ]] && exit 1 || add_alias "${1#alias.}" "${@:2}" ;;
         active)
-            if [[ "$2" == "-d" ]]; then
+            if [[ $# -eq 2 && "$2" =~ ^-([0-9]+)$ ]]; then
+                exec_selected_devices "${BASH_REMATCH[1]}"
+            elif [[ "$2" == "-a" ]]; then
+                printf "${c_error}Error: Only one device can be active${c_reset}\n" >&2
+                return 1
+            elif [[ "$2" == "-d" ]]; then
                 unset_active_device
             elif [[ "$2" == "-h" || "$2" == "--help" ]]; then
-                printf "${c_bold}用法:${c_reset} sadb active [序列号 | -d | -h]\n\n"
+                printf "${c_bold}用法:${c_reset} sadb active [序列号 | -<编号> | -d | -h]\n\n"
                 printf "  <无参数>      触发交互式列表选择 (或自动选择唯一设备)\n"
                 printf "  <序列号>      直接锁定指定的设备序列号\n"
+                printf "  -<编号>       锁定指定设备编号 (例如 sadb active -0)\n"
                 printf "  -d           取消当前会话的设备锁定\n"
                 printf "  -h, --help   显示此帮助信息\n\n"
                 printf "注意: 锁定仅对当前终端会话有效，不会影响其他窗口。\n"
@@ -496,13 +538,20 @@ main() {
             fi
             ;;
         *)
-            print_devices
-            choose_device ;;
+            local selector="${!#}"
+            if [[ $# -gt 1 && "$selector" =~ ^-([0-9]+)$ ]]; then
+                selector="${BASH_REMATCH[1]}"
+                adb_args=("${adb_args[@]:0:$#-1}")
+                exec_selected_devices "$selector"
+            else
+                print_devices
+                choose_device
+            fi ;;
     esac
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    print_exec_time
+    print_exec_time "$@"
     read_alias
     main "$@"
 fi
